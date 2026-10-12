@@ -59,7 +59,7 @@ export function StartScreen() {
           </button>
         </div>
         <p className="mt-3 text-sm leading-6 text-muted">
-          상대는 샘플 데이터인 준호로 고정되어 있다. 점수는 이 브라우저 탭에만 남고, AI 문장은 외부 모델 없이 임시 데이터로 보여 준다.
+          상대는 샘플 데이터인 준호로 고정되어 있다. 점수는 이 브라우저 탭에 남고, 분석 문장은 Gemini가 쓴다.
         </p>
         {canContinue ? (
           <p className="mt-3 text-sm">

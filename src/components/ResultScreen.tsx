@@ -15,6 +15,7 @@ type StoredAnalysis = {
   key: string;
   status: "ready" | "error";
   analysis: AiAnalysis | null;
+  message: string | null;
 } | null;
 
 export function ResultScreen() {
@@ -31,6 +32,7 @@ export function ResultScreen() {
   const [result, setResult] = useState<StoredAnalysis>(null);
   const status = result?.key === pairKey ? result.status : "loading";
   const analysis = result?.key === pairKey ? result.analysis : null;
+  const errorMessage = result?.key === pairKey ? result.message : null;
 
   useEffect(() => {
     if (!pair?.me.scores || !pair.partner.scores || !pairKey) return;
@@ -42,10 +44,12 @@ export function ResultScreen() {
 
     requestChemistryAnalysis({ personA, personB })
       .then((next) => {
-        if (!cancelled) setResult({ key, status: "ready", analysis: next });
+        if (cancelled) return;
+        if (next.ok) setResult({ key, status: "ready", analysis: next.analysis, message: null });
+        else setResult({ key, status: "error", analysis: null, message: next.message });
       })
       .catch(() => {
-        if (!cancelled) setResult({ key, status: "error", analysis: null });
+        if (!cancelled) setResult({ key, status: "error", analysis: null, message: "분석을 만들지 못했습니다." });
       });
 
     return () => {
@@ -102,6 +106,7 @@ export function ResultScreen() {
         pairLabel={`${withAnd(pair.me.name)} ${pair.partner.name}`}
         status={status}
         analysis={analysis}
+        errorMessage={errorMessage}
         onRetry={() => {
           if (!pair.me.scores || !pair.partner.scores) return;
           const key = pairKey;
@@ -110,8 +115,11 @@ export function ResultScreen() {
             personA: { name: pair.me.name, scores: pair.me.scores },
             personB: { name: pair.partner.name, scores: pair.partner.scores },
           })
-            .then((next) => setResult({ key, status: "ready", analysis: next }))
-            .catch(() => setResult({ key, status: "error", analysis: null }));
+            .then((next) => {
+              if (next.ok) setResult({ key, status: "ready", analysis: next.analysis, message: null });
+              else setResult({ key, status: "error", analysis: null, message: next.message });
+            })
+            .catch(() => setResult({ key, status: "error", analysis: null, message: "분석을 만들지 못했습니다." }));
         }}
       />
 
@@ -180,21 +188,23 @@ function AnalysisCard({
   pairLabel,
   status,
   analysis,
+  errorMessage,
   onRetry,
 }: {
   pairLabel: string;
   status: "loading" | "ready" | "error";
   analysis: AiAnalysis | null;
+  errorMessage: string | null;
   onRetry: () => void;
 }) {
   return (
     <section className="border-2 border-dashed border-ink bg-card p-5 sm:p-6" aria-live="polite">
-      <p className="text-xs font-semibold tracking-[0.18em] text-gold">AI 분석 · 임시 데이터</p>
+      <p className="text-xs font-semibold tracking-[0.18em] text-gold">AI 분석</p>
       <h2 className="mt-2 text-2xl font-semibold">{pairLabel} 이야기</h2>
-      {status === "loading" ? <p className="mt-4 text-sm leading-6 text-muted">점수에 맞는 임시 문장을 고르는 중</p> : null}
+      {status === "loading" ? <p className="mt-4 text-sm leading-6 text-muted">Gemini가 케미를 읽고 있습니다.</p> : null}
       {status === "error" ? (
         <div className="mt-4">
-          <p className="text-sm leading-6">임시 분석을 만들지 못했다.</p>
+          <p className="text-sm leading-6">{errorMessage ?? "분석을 만들지 못했습니다."}</p>
           <button type="button" className={`${secondaryButton} mt-3`} onClick={onRetry}>
             다시 시도
           </button>
@@ -226,7 +236,8 @@ function AnalysisBody({ analysis }: { analysis: AiAnalysis }) {
         </ul>
       </div>
       <p className="border-2 border-ink bg-paper px-4 py-3 font-semibold">{analysis.nextMove}</p>
-      <p className="text-xs text-muted">외부 모델을 호출하지 않았다. aiService의 {analysis.providerId} 구현이 고른 문장이다.</p>
+      <p className="text-xs text-muted">Gemini({analysis.providerId})가 쓴 분석이다.</p>
+      {analysis.storageError ? <p className="text-xs text-a">{analysis.storageError}</p> : null}
     </div>
   );
 }

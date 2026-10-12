@@ -4,6 +4,7 @@ import { createAiService } from "@/lib/ai/aiService";
 import type { AiAnalysis } from "@/lib/ai/types";
 import { calculateChemistry } from "@/lib/chemistry";
 import { hasTraitScores } from "@/lib/session";
+import { saveChemistryResult } from "@/lib/supabase/results";
 import type { TraitScores } from "@/lib/types";
 
 interface AnalysisInput {
@@ -11,28 +12,45 @@ interface AnalysisInput {
   personB: { name: string; scores: TraitScores };
 }
 
-export async function requestChemistryAnalysis(input: AnalysisInput): Promise<AiAnalysis> {
-  const personA = sanitizePerson(input.personA);
-  const personB = sanitizePerson(input.personB);
-  const chemistry = calculateChemistry(personA.scores, personB.scores);
-  const ai = createAiService();
+export type AnalysisResult = { ok: true; analysis: AiAnalysis } | { ok: false; message: string };
 
-  return ai.analyze({
-    personA: { name: personA.name },
-    personB: { name: personB.name },
-    overall: chemistry.overall,
-    gradeLabel: chemistry.grade.label,
-    gradeHeadline: chemistry.grade.headline,
-    dimensions: chemistry.dimensions.map((dimension) => ({
-      key: dimension.key,
-      label: dimension.label,
-      left: dimension.left,
-      right: dimension.right,
-      score: dimension.score,
-      comment: dimension.comment,
-      mode: dimension.mode,
-    })),
-  });
+export async function requestChemistryAnalysis(input: AnalysisInput): Promise<AnalysisResult> {
+  try {
+    const personA = sanitizePerson(input.personA);
+    const personB = sanitizePerson(input.personB);
+    const chemistry = calculateChemistry(personA.scores, personB.scores);
+    const analysis = await createAiService().analyze({
+      personA: { name: personA.name },
+      personB: { name: personB.name },
+      overall: chemistry.overall,
+      gradeLabel: chemistry.grade.label,
+      gradeHeadline: chemistry.grade.headline,
+      dimensions: chemistry.dimensions.map((dimension) => ({
+        key: dimension.key,
+        label: dimension.label,
+        left: dimension.left,
+        right: dimension.right,
+        score: dimension.score,
+        comment: dimension.comment,
+        mode: dimension.mode,
+      })),
+    });
+
+    const storageError = await saveChemistryResult({
+      personAName: personA.name,
+      personBName: personB.name,
+      personAScores: personA.scores,
+      personBScores: personB.scores,
+      overall: chemistry.overall,
+      gradeLabel: chemistry.grade.label,
+      analysis,
+    });
+
+    return { ok: true, analysis: { ...analysis, storageError } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "분석을 만들지 못했습니다.";
+    return { ok: false, message };
+  }
 }
 
 function sanitizePerson(person: AnalysisInput["personA"]): { name: string; scores: TraitScores } {

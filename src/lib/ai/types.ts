@@ -23,6 +23,7 @@ export interface AiAnalysis {
   strengths: string[];
   watchouts: string[];
   nextMove: string;
+  storageError: string | null;
 }
 
 /**
