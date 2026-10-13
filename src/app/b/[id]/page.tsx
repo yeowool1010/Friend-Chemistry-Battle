@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { BattleScreen } from "@/components/BattleScreen";
 
 export const metadata: Metadata = {
-  title: "케미",
+  title: { absolute: "케미 · 친구 케미 배틀" },
 };
 
 export default function BattlePage() {

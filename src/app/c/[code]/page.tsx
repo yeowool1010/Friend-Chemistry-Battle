@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const title = `${withSubject(name)} 당신과의 친구 케미를 확인하고 싶어 합니다.`;
 
   return {
-    title: `${name}의 케미 초대`,
+    title: { absolute: `${name}의 케미 초대 · 친구 케미 배틀` },
     description: "우리 둘은 몇 점?",
     openGraph: {
       title,
