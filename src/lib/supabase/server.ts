@@ -2,10 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 
 export function createSupabaseServerClient() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY;
 
   if (!url || !key) {
-    throw new Error("Supabase 주소 또는 공개 키가 없습니다.");
+    throw new Error("Supabase 주소 또는 비밀 키가 없습니다.");
   }
 
   return createClient(url, key, {

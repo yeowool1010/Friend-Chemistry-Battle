@@ -19,10 +19,11 @@ export interface AiAnalysisRequest {
 
 export interface AiAnalysis {
   providerId: string;
+  headline: string;
+  troubleMaker: string;
+  fixer: string;
+  travel: string;
   summary: string;
-  strengths: string[];
-  watchouts: string[];
-  nextMove: string;
   storageError: string | null;
 }
 

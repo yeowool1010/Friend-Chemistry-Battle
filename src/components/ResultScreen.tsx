@@ -6,10 +6,30 @@ import { Meter } from "@/components/Meter";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { useSession } from "@/components/SessionProvider";
 import type { AiAnalysis } from "@/lib/ai/types";
-import { requestChemistryAnalysis } from "@/lib/ai/requestChemistryAnalysis";
+import { requestChemistryAnalysis, type AnalysisResult } from "@/lib/ai/requestChemistryAnalysis";
 import { CHEMISTRY_SUMMARY, calculateChemistry } from "@/lib/chemistry";
 import { withAnd } from "@/lib/korean";
 import { resolveBattlePair, type ResolvedPair } from "@/lib/sampleData";
+
+const analysisRequests = new Map<string, Promise<AnalysisResult>>();
+
+function loadAnalysis(
+  key: string,
+  input: { personA: { name: string; scores: NonNullable<ResolvedPair["me"]["scores"]> }; personB: { name: string; scores: NonNullable<ResolvedPair["me"]["scores"]> } },
+  fresh = false,
+) {
+  if (fresh) analysisRequests.delete(key);
+  const existing = analysisRequests.get(key);
+  if (existing) return existing;
+
+  let pending: Promise<AnalysisResult>;
+  pending = requestChemistryAnalysis(input).then((result) => {
+    if (!result.ok && analysisRequests.get(key) === pending) analysisRequests.delete(key);
+    return result;
+  });
+  analysisRequests.set(key, pending);
+  return pending;
+}
 
 type StoredAnalysis = {
   key: string;
@@ -42,7 +62,7 @@ export function ResultScreen() {
     const personA = { name: pair.me.name, scores: pair.me.scores };
     const personB = { name: pair.partner.name, scores: pair.partner.scores };
 
-    requestChemistryAnalysis({ personA, personB })
+    loadAnalysis(key, { personA, personB })
       .then((next) => {
         if (cancelled) return;
         if (next.ok) setResult({ key, status: "ready", analysis: next.analysis, message: null });
@@ -111,10 +131,14 @@ export function ResultScreen() {
           if (!pair.me.scores || !pair.partner.scores) return;
           const key = pairKey;
           setResult(null);
-          requestChemistryAnalysis({
-            personA: { name: pair.me.name, scores: pair.me.scores },
-            personB: { name: pair.partner.name, scores: pair.partner.scores },
-          })
+          loadAnalysis(
+            key,
+            {
+              personA: { name: pair.me.name, scores: pair.me.scores },
+              personB: { name: pair.partner.name, scores: pair.partner.scores },
+            },
+            true,
+          )
             .then((next) => {
               if (next.ok) setResult({ key, status: "ready", analysis: next.analysis, message: null });
               else setResult({ key, status: "error", analysis: null, message: next.message });
@@ -201,7 +225,7 @@ function AnalysisCard({
     <section className="border-2 border-dashed border-ink bg-card p-5 sm:p-6" aria-live="polite">
       <p className="text-xs font-semibold tracking-[0.18em] text-gold">AI 분석</p>
       <h2 className="mt-2 text-2xl font-semibold">{pairLabel} 이야기</h2>
-      {status === "loading" ? <p className="mt-4 text-sm leading-6 text-muted">Gemini가 케미를 읽고 있습니다.</p> : null}
+      {status === "loading" ? <p className="mt-4 text-sm leading-6 text-muted">케미 문장을 쓰고 있습니다.</p> : null}
       {status === "error" ? (
         <div className="mt-4">
           <p className="text-sm leading-6">{errorMessage ?? "분석을 만들지 못했습니다."}</p>
@@ -218,26 +242,27 @@ function AnalysisCard({
 function AnalysisBody({ analysis }: { analysis: AiAnalysis }) {
   return (
     <div className="mt-4 space-y-4 text-sm leading-7">
+      <p className="text-xl font-semibold leading-8">{analysis.headline}</p>
       <p>{analysis.summary}</p>
-      <div>
-        <h3 className="font-semibold">잘 맞는 지점</h3>
-        <ul className="mt-1 list-disc space-y-1 pl-5">
-          {analysis.strengths.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <RoleChip label="판을 흔드는 쪽" name={analysis.troubleMaker} />
+        <RoleChip label="다시 잡는 쪽" name={analysis.fixer} />
       </div>
       <div>
-        <h3 className="font-semibold">살펴볼 지점</h3>
-        <ul className="mt-1 list-disc space-y-1 pl-5">
-          {analysis.watchouts.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+        <h3 className="font-semibold">같이 여행하면</h3>
+        <p className="mt-1 border-2 border-ink bg-paper px-4 py-3">{analysis.travel}</p>
       </div>
-      <p className="border-2 border-ink bg-paper px-4 py-3 font-semibold">{analysis.nextMove}</p>
-      <p className="text-xs text-muted">Gemini({analysis.providerId})가 쓴 분석이다.</p>
+      <p className="text-xs text-muted">{analysis.providerId}가 쓴 문장이다. 점수는 서버에서 계산했다.</p>
       {analysis.storageError ? <p className="text-xs text-a">{analysis.storageError}</p> : null}
+    </div>
+  );
+}
+
+function RoleChip({ label, name }: { label: string; name: string }) {
+  return (
+    <div className="border-2 border-ink bg-paper px-4 py-3">
+      <p className="text-xs font-semibold text-muted">{label}</p>
+      <p className="text-lg font-semibold">{name}</p>
     </div>
   );
 }

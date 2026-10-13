@@ -12,19 +12,3 @@ create table if not exists public.chemistry_results (
 );
 
 alter table public.chemistry_results enable row level security;
-
-grant select, insert on public.chemistry_results to anon, authenticated;
-
-drop policy if exists "chemistry_results_insert" on public.chemistry_results;
-create policy "chemistry_results_insert"
-  on public.chemistry_results
-  for insert
-  to anon, authenticated
-  with check (true);
-
-drop policy if exists "chemistry_results_select" on public.chemistry_results;
-create policy "chemistry_results_select"
-  on public.chemistry_results
-  for select
-  to anon, authenticated
-  using (true);
