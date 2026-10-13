@@ -17,6 +17,15 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
     openGraph: {
       title,
       description: "우리 둘은 몇 점?",
+      url: `/c/${code}`,
+      images: [
+        {
+          url: "/main.png",
+          width: 558,
+          height: 345,
+          alt: "친구랑 나, 사실 얼마나 잘 맞을까?",
+        },
+      ],
     },
   };
 }

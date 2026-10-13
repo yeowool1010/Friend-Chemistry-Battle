@@ -17,12 +17,25 @@ const body = IBM_Plex_Sans_KR({
   variable: "--font-plex",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "친구 케미 배틀",
     template: "%s · 친구 케미 배틀",
   },
   description: "두 사람의 테스트 점수로 케미를 계산한다.",
+  openGraph: {
+    images: [
+      {
+        url: "/main.png",
+        width: 558,
+        height: 345,
+        alt: "친구랑 나, 사실 얼마나 잘 맞을까?",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

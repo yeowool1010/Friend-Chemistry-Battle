@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Meter } from "@/components/Meter";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
@@ -132,7 +133,7 @@ export function BattleScreen() {
 
 function HostWaiting({ hostName, battleId }: { hostName: string; battleId: string }) {
   const [copied, setCopied] = useState(false);
-    const link = typeof window === "undefined" ? `/c/${battleId}` : `${window.location.origin}/c/${battleId}`;
+  const link = typeof window === "undefined" ? `/c/${battleId}` : `${window.location.origin}/c/${battleId}`;
 
   async function share() {
     const text = `나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`;
@@ -157,6 +158,16 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
         <button type="button" className={`${primaryButton} mt-4`} onClick={share}>
           {copied ? "문구를 복사했다" : "이 문구로 보내기"}
         </button>
+        <p className="mt-4 text-sm leading-6 text-muted">
+          카톡에 링크를 붙이면 아래 사진이 같이 보여요. 사진이 안 뜨면 링크를 한 번 눌러 미리보기를 불러와 주세요.
+        </p>
+        <Image
+          src="/main.png"
+          alt="카톡 미리보기. 친구랑 나, 사실 얼마나 잘 맞을까?"
+          width={558}
+          height={345}
+          className="mt-3 h-auto w-full border-2 border-ink"
+        />
       </section>
     </main>
   );
@@ -269,6 +280,7 @@ function ChemistryResult({
           {copied ? "공유 문구를 복사했다" : "SNS 공유"}
         </button>
       </div>
+      <p className="text-sm leading-6 text-muted">카톡에 링크를 붙이면 초대 사진이 같이 보여요.</p>
       {notice ? <p className="text-sm text-a">{notice}</p> : null}
     </main>
   );
