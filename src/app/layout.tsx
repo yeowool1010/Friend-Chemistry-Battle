@@ -17,7 +17,7 @@ const body = IBM_Plex_Sans_KR({
   variable: "--font-plex",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
