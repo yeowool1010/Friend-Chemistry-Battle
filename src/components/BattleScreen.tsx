@@ -176,7 +176,7 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
             {pending ? "카톡을 여는 중" : "카톡으로 초대하기"}
           </button> */}
           <button type="button" className={secondaryButton} onClick={copyInvite}>
-            {copied ? "문구를 복사완료" : "문구 복사"}
+            {copied ? "문구 복사완료" : "문구 복사"}
           </button>
         </div>
         {notice ? <p className="mt-3 text-sm text-a">{notice}</p> : null}
@@ -297,7 +297,7 @@ function ChemistryResult({
           {pending ? "새 링크를 만드는 중" : "이번엔 다른 친구랑 해보기"}
         </button>
         <button type="button" className={secondaryButton} onClick={share}>
-          {copied ? "공유 문구를 복사완료" : "SNS 공유"}
+          {copied ? "공유 문구 복사완료" : "SNS 공유"}
         </button>
       </div>
       <p className="text-sm leading-6 text-muted">카톡에 링크를 붙이면 초대 사진이 같이 보여요.</p>
