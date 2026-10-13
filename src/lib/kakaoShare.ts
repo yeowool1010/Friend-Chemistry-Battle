@@ -1,3 +1,5 @@
+import { readKakaoJavaScriptKey } from "@/lib/kakao/key";
+
 const KAKAO_SDK = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js";
 
 interface KakaoLink {
@@ -23,15 +25,9 @@ declare global {
   }
 }
 
-export function kakaoJavaScriptKey(): string | undefined {
-  const key = process.env.KAKAO_JAVASCRIPT_KEY?.trim();
-  return key || undefined;
-}
-
-export function loadKakao(): Promise<void> {
-  const key = kakaoJavaScriptKey();
+export function loadKakao(key: string | null): Promise<void> {
   if (!key) {
-    return Promise.reject(new Error("카카오 JavaScript 키를 넣은 뒤에 다시 배포해야 카톡 친구 목록이 열립니다."));
+    return Promise.reject(new Error("KAKAO_JAVASCRIPT_KEY를 넣은 뒤에 다시 배포해야 카톡 친구 목록이 열립니다."));
   }
   if (window.Kakao?.isInitialized()) return Promise.resolve();
 
@@ -61,8 +57,15 @@ export function loadKakao(): Promise<void> {
   });
 }
 
+export function preloadKakao() {
+  void readKakaoJavaScriptKey()
+    .then((key) => loadKakao(key))
+    .catch(() => undefined);
+}
+
 export async function shareInviteOnKakao(input: { title: string; description: string; url: string; imageUrl: string }) {
-  await loadKakao();
+  const key = await readKakaoJavaScriptKey();
+  await loadKakao(key);
   const link = { mobileWebUrl: input.url, webUrl: input.url };
   try {
     window.Kakao?.Share.sendDefault({

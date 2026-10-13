@@ -9,7 +9,7 @@ import { useSession } from "@/components/SessionProvider";
 import { loadBattle, remixBattle, type PublicBattle } from "@/lib/battles/actions";
 import { CHEMISTRY_DISCLAIMER, calculateChemistry, styleLabel } from "@/lib/chemistry";
 import { withAnd, withSubject } from "@/lib/korean";
-import { loadKakao, shareInviteOnKakao } from "@/lib/kakaoShare";
+import { preloadKakao, shareInviteOnKakao } from "@/lib/kakaoShare";
 
 export function BattleScreen() {
   const params = useParams<{ id?: string; code?: string }>();
@@ -139,7 +139,7 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
   const link = typeof window === "undefined" ? `/c/${battleId}` : `${window.location.origin}/c/${battleId}`;
 
   useEffect(() => {
-    void loadKakao().catch(() => undefined);
+    preloadKakao();
   }, []);
 
   async function inviteOnKakao() {
