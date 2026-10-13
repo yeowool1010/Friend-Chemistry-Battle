@@ -80,8 +80,8 @@ export function TestScreen() {
     if (next.role === "guest" && next.battleId) {
       setPending(true);
       const result = await submitGuestAnswer({ battleId: next.battleId, name: next.me.name, answers: next.me.answers });
-      setPending(false);
       if (!result.ok) {
+        setPending(false);
         setNotice(result.message);
         return;
       }
@@ -95,6 +95,7 @@ export function TestScreen() {
   }
 
   return (
+    <>
     <main className="flex flex-col gap-6 pb-10">
       <div>
         <p className="text-sm font-semibold text-a">{session.me.name}의 테스트</p>
@@ -168,11 +169,18 @@ export function TestScreen() {
           </button>
         )}
         {complete && index < QUESTIONS.length - 1 ? (
-          <button type="button" className={secondaryButton} onClick={submit}>
+          <button type="button" className={secondaryButton} disabled={pending} onClick={submit}>
             이 답안으로 제출
           </button>
         ) : null}
       </div>
     </main>
+    {pending && session.role === "guest" ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="status" aria-live="polite">
+        <span className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+        <span className="sr-only">케미를 계산하는 중</span>
+      </div>
+    ) : null}
+    </>
   );
 }
