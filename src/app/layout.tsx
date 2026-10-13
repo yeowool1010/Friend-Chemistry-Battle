@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Black_Han_Sans, IBM_Plex_Sans_KR } from "next/font/google";
 import { AppHeader } from "@/components/AppHeader";
 import { SessionProvider } from "@/components/SessionProvider";
+import { readServerEnv } from "@/lib/serverEnv";
 import "./globals.css";
 
 const display = Black_Han_Sans({
@@ -17,7 +18,7 @@ const body = IBM_Plex_Sans_KR({
   variable: "--font-plex",
 });
 
-const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const siteUrl = (readServerEnv("SITE_URL") ?? "http://localhost:3000").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

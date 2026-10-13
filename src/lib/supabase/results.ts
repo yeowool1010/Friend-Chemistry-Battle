@@ -1,3 +1,4 @@
+import { readServerEnv } from "@/lib/serverEnv";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AiAnalysis } from "@/lib/ai/types";
 import type { TraitScores } from "@/lib/types";
@@ -15,7 +16,7 @@ export interface ChemistryResultRow {
 export async function saveChemistryResult(row: ChemistryResultRow): Promise<string | null> {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("chemistry_results").insert({
-    owner_id: process.env.APP_OWNER_ID || "yeowool1010",
+    owner_id: readServerEnv("APP_OWNER_ID") || "yeowool1010",
     person_a_name: row.personAName,
     person_b_name: row.personBName,
     person_a_scores: row.personAScores,

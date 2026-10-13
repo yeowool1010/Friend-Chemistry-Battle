@@ -1,16 +1,17 @@
 import type { AiAnalysis, AiAnalysisRequest, AiService } from "@/lib/ai/types";
+import { readServerEnv } from "@/lib/serverEnv";
 
 const DEFAULT_MODEL = "gpt-6-astra";
 
 export const openaiAiService: AiService = {
   id: "openai",
   async analyze(request) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = readServerEnv("OPENAI_API_KEY");
     if (!apiKey) {
       throw new Error("OPENAI_API_KEY가 없습니다.");
     }
 
-    const model = process.env.OPENAI_MODEL || DEFAULT_MODEL;
+    const model = readServerEnv("OPENAI_MODEL") || DEFAULT_MODEL;
     const names = uniqueNames(request.personA.name, request.personB.name);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",

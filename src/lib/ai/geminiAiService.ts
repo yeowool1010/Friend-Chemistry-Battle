@@ -1,11 +1,12 @@
 import type { AiAnalysis, AiAnalysisRequest, AiService } from "@/lib/ai/types";
+import { readServerEnv } from "@/lib/serverEnv";
 
 const MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
 
 export const geminiAiService: AiService = {
   id: "gemini",
   async analyze(request) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = readServerEnv("GEMINI_API_KEY");
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY가 없습니다.");
     }
