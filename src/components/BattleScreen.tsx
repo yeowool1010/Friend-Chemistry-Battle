@@ -8,7 +8,8 @@ import { cardClass, primaryButton, secondaryButton } from "@/components/buttons"
 import { useSession } from "@/components/SessionProvider";
 import { loadBattle, remixBattle, type PublicBattle } from "@/lib/battles/actions";
 import { CHEMISTRY_DISCLAIMER, calculateChemistry, styleLabel } from "@/lib/chemistry";
-import { withAnd } from "@/lib/korean";
+import { withAnd, withSubject } from "@/lib/korean";
+import { loadKakao, shareInviteOnKakao } from "@/lib/kakaoShare";
 
 export function BattleScreen() {
   const params = useParams<{ id?: string; code?: string }>();
@@ -133,18 +134,33 @@ export function BattleScreen() {
 
 function HostWaiting({ hostName, battleId }: { hostName: string; battleId: string }) {
   const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
   const link = typeof window === "undefined" ? `/c/${battleId}` : `${window.location.origin}/c/${battleId}`;
 
-  async function share() {
-    const text = `나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "친구 케미 배틀", text });
-      } catch {
-        return;
-      }
-      return;
+  useEffect(() => {
+    void loadKakao().catch(() => undefined);
+  }, []);
+
+  async function inviteOnKakao() {
+    setNotice("");
+    setPending(true);
+    try {
+      await shareInviteOnKakao({
+        title: `${withSubject(hostName)} 당신과의 친구 케미를 확인하고 싶어 합니다.`,
+        description: "나 테스트했는데 우리 둘 케미 몇 점인지 해볼래? ㅋㅋ",
+        url: link,
+        imageUrl: `${window.location.origin}/main.png`,
+      });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "카톡 초대를 열지 못했습니다.");
+    } finally {
+      setPending(false);
     }
+  }
+
+  async function copyInvite() {
+    const text = `나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
   }
@@ -155,12 +171,16 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
         <p className="text-sm font-semibold text-a">친구를 기다리는 중</p>
         <h1 className="mt-2 text-3xl font-semibold">{hostName}의 초대</h1>
         <p className="mt-4 whitespace-pre-line border-2 border-ink bg-paper px-4 py-3 text-sm leading-7">{`나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`}</p>
-        <button type="button" className={`${primaryButton} mt-4`} onClick={share}>
-          {copied ? "문구를 복사했다" : "이 문구로 보내기"}
-        </button>
-        <p className="mt-4 text-sm leading-6 text-muted">
-          카톡에 링크를 붙이면 아래 사진이 같이 보여요. 사진이 안 뜨면 링크를 한 번 눌러 미리보기를 불러와 주세요.
-        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button type="button" className={primaryButton} disabled={pending} onClick={inviteOnKakao}>
+            {pending ? "카톡을 여는 중" : "카톡으로 초대하기"}
+          </button>
+          <button type="button" className={secondaryButton} onClick={copyInvite}>
+            {copied ? "문구를 복사했다" : "문구 복사"}
+          </button>
+        </div>
+        {notice ? <p className="mt-3 text-sm text-a">{notice}</p> : null}
+        <p className="mt-4 text-sm leading-6 text-muted">카톡 친구를 고르면 아래 사진과 초대 링크가 같이 전달돼요.</p>
         <Image
           src="/main.png"
           alt="카톡 미리보기. 친구랑 나, 사실 얼마나 잘 맞을까?"
