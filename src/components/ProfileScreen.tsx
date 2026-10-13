@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Meter } from "@/components/Meter";
 import { cardClass, primaryButton } from "@/components/buttons";
 import { useSession } from "@/components/SessionProvider";
+import { capture } from "@/lib/analytics";
 import { createBattleInvite } from "@/lib/battles/actions";
 import { describePersona } from "@/lib/persona";
 import { TRAITS } from "@/lib/types";
@@ -38,6 +39,7 @@ export function ProfileScreen() {
       return;
     }
     rememberBattle(result.id, "host", result.token);
+    capture("invite_created");
     router.push(`/c/${result.id}`);
   }
 

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Meter } from "@/components/Meter";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { useSession } from "@/components/SessionProvider";
+import { capture } from "@/lib/analytics";
 import { loadBattle, remixBattle, type PublicBattle } from "@/lib/battles/actions";
 import { CHEMISTRY_DISCLAIMER, calculateChemistry, styleLabel } from "@/lib/chemistry";
 import { withAnd, withSubject } from "@/lib/korean";
@@ -22,6 +23,13 @@ export function BattleScreen() {
   const [pending, setPending] = useState(false);
 
   const isHost = hydrated && session.role === "host" && session.battleId === battleId;
+
+  const inviteId = battle && battle.status !== "done" ? battle.id : "";
+
+  useEffect(() => {
+    if (!hydrated || !inviteId || isHost) return;
+    capture("invite_opened");
+  }, [hydrated, inviteId, isHost]);
 
   useEffect(() => {
     if (!battleId) return;
@@ -89,6 +97,7 @@ export function BattleScreen() {
   function begin() {
     const trimmed = name.trim();
     if (!trimmed) return;
+    capture("guest_started");
     joinTest(trimmed, battleId);
     router.push("/test");
   }
@@ -162,6 +171,7 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
   async function copyInvite() {
     const text = `나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`;
     await navigator.clipboard.writeText(text);
+    capture("invite_copied");
     setCopied(true);
   }
 
@@ -211,6 +221,10 @@ function ChemistryResult({
   const chemistry = calculateChemistry(battle.hostScores, battle.guestScores);
   const analysis = battle.analysis;
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    capture("chemistry_viewed", { score: chemistry.overall });
+  }, [battle.id, chemistry.overall]);
 
   async function share() {
     const link = `${window.location.origin}/c/${battle.id}`;

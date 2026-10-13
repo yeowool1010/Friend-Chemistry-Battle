@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { useSession } from "@/components/SessionProvider";
+import { capture } from "@/lib/analytics";
 import { submitGuestAnswer } from "@/lib/battles/actions";
 import { QUESTIONS, choiceMark } from "@/lib/questions";
 import { isComplete } from "@/lib/scoring";
@@ -30,6 +31,11 @@ export function TestScreen() {
       return <p className="text-muted">초대장을 불러오는 중</p>;
     }
     const trimmed = name.trim();
+    function beginTest() {
+      if (!trimmed) return;
+      capture("test_started", { role: "host" });
+      startTest(trimmed);
+    }
     return (
       <main className="flex max-w-xl flex-col gap-6 pb-12">
         <section className={`${cardClass} p-5 sm:p-6`}>
@@ -47,13 +53,11 @@ export function TestScreen() {
               placeholder="최대 12자"
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && trimmed) {
-                  startTest(trimmed);
-                }
+                if (event.key === "Enter" && trimmed) beginTest();
               }}
               className="h-12 flex-1 border-2 border-ink bg-paper px-4 text-base outline-none focus:bg-card"
             />
-            <button type="button" className={primaryButton} disabled={trimmed.length === 0} onClick={() => startTest(trimmed)}>
+            <button type="button" className={primaryButton} disabled={trimmed.length === 0} onClick={beginTest}>
               테스트 시작
             </button>
           </div>
@@ -82,9 +86,11 @@ export function TestScreen() {
         return;
       }
       rememberBattle(next.battleId, "guest", result.token);
+      capture("test_completed", { role: "guest" });
       router.push(`/c/${next.battleId}`);
       return;
     }
+    capture("test_completed", { role: "host" });
     router.push("/profile");
   }
 
