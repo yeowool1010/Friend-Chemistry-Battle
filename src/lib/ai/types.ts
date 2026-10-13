@@ -1,20 +1,12 @@
-export interface AiTraitSnapshot {
-  key: string;
-  label: string;
-  left: number;
-  right: number;
-  score: number;
-  comment: string;
-  mode: "similar" | "complement";
-}
+import type { TraitScores } from "@/lib/types";
 
 export interface AiAnalysisRequest {
-  personA: { name: string };
-  personB: { name: string };
-  overall: number;
-  gradeLabel: string;
-  gradeHeadline: string;
-  dimensions: AiTraitSnapshot[];
+  personA: { name: string; scores: TraitScores };
+  personB: { name: string; scores: TraitScores };
+  chemistry: number;
+  type: string;
+  similarity: number;
+  complement: number;
 }
 
 export interface AiAnalysis {
@@ -23,6 +15,7 @@ export interface AiAnalysis {
   troubleMaker: string;
   fixer: string;
   travel: string;
+  meal: string;
   summary: string;
   storageError: string | null;
 }

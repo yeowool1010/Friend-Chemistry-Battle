@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
-import { ResultScreen } from "@/components/ResultScreen";
-
-export const metadata: Metadata = {
-  title: "결과",
-};
+import { redirect } from "next/navigation";
 
 export default function ResultPage() {
-  return <ResultScreen />;
+  redirect("/profile");
 }

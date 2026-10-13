@@ -1,32 +1,11 @@
 import { TRAITS, TRAIT_KEYS, type TraitKey, type TraitScores } from "@/lib/types";
 
-export type ChemistryMode = "similar" | "complement";
+export const CHEMISTRY_DISCLAIMER = "재미를 위한 결과입니다.";
 
-export interface ChemistryRule {
-  mode: ChemistryMode;
-  /** complement일 때 가장 높게 치는 점수 차 */
-  idealGap: number;
-  weight: number;
-}
-
-/**
- * 공감·솔직·유머는 비슷할수록, 계획·모험·에너지는 적당한 간격일수록 케미가 높다.
- * 화면과 AI 설명은 이 함수의 결과를 그대로 쓴다.
- */
-export const CHEMISTRY_RULES: Record<TraitKey, ChemistryRule> = {
-  empathy: { mode: "similar", idealGap: 0, weight: 0.22 },
-  candor: { mode: "similar", idealGap: 0, weight: 0.16 },
-  humor: { mode: "similar", idealGap: 0, weight: 0.14 },
-  planning: { mode: "complement", idealGap: 28, weight: 0.18 },
-  adventure: { mode: "complement", idealGap: 24, weight: 0.16 },
-  energy: { mode: "complement", idealGap: 18, weight: 0.14 },
-};
-
-export const CHEMISTRY_SUMMARY =
-  "공감, 솔직, 유머는 점수가 비슷할수록 높다. 계획, 모험, 에너지는 적당한 간격이 역할을 나눌 때 높다.";
+export type ChemistryStyle = "harmony" | "complement" | "mixed";
 
 export interface ChemistryGrade {
-  id: "spark" | "sync" | "adjust" | "contrast";
+  id: "soul" | "duo" | "chaos" | "banter" | "odd" | "mystery" | "miracle";
   label: string;
   headline: string;
 }
@@ -35,99 +14,113 @@ export interface DimensionChemistry {
   key: TraitKey;
   label: string;
   description: string;
-  mode: ChemistryMode;
   left: number;
   right: number;
   gap: number;
-  score: number;
   comment: string;
 }
 
 export interface ChemistryResult {
   overall: number;
+  similarity: number;
+  complement: number;
+  style: ChemistryStyle;
   grade: ChemistryGrade;
   dimensions: DimensionChemistry[];
 }
 
+/**
+ * 조화는 성향이 가까울수록, 보완은 차이가 60점 근처일수록 높다.
+ * 최종 케미는 더 높은 쪽을 중심으로 잡고, 다른 쪽을 조금 섞는다.
+ * AI는 이 숫자를 다시 계산하지 않는다.
+ */
 export function calculateChemistry(left: TraitScores, right: TraitScores): ChemistryResult {
-  const weightSum = TRAIT_KEYS.reduce((sum, key) => sum + CHEMISTRY_RULES[key].weight, 0);
-
   const dimensions = TRAIT_KEYS.map((key) => {
     const meta = TRAITS.find((trait) => trait.key === key);
     if (!meta) {
       throw new Error(`알 수 없는 성향입니다: ${key}`);
     }
 
-    const rule = CHEMISTRY_RULES[key];
     const leftScore = clamp(left[key]);
     const rightScore = clamp(right[key]);
     const gap = Math.abs(leftScore - rightScore);
-    const score = pairScore(leftScore, rightScore, rule);
 
     return {
       key,
       label: meta.label,
       description: meta.description,
-      mode: rule.mode,
       left: leftScore,
       right: rightScore,
       gap,
-      score,
-      comment: describeDimension(meta.label, rule, gap, score),
+      comment: describeGap(meta.label, gap),
     };
   });
 
-  const overall = clamp(
-    Math.round(
-      dimensions.reduce((sum, dimension) => {
-        return sum + dimension.score * (CHEMISTRY_RULES[dimension.key].weight / weightSum);
-      }, 0),
-    ),
-  );
+  const similarity = average(dimensions.map((dimension) => 100 - dimension.gap));
+  const complement = average(dimensions.map((dimension) => complementOf(dimension.gap)));
+  const lead = Math.max(similarity, complement);
+  const other = Math.min(similarity, complement);
+  const overall = clamp(Math.round(lead * 0.8 + other * 0.2));
+  const style = styleFor(similarity, complement);
 
   return {
     overall,
-    grade: gradeFor(overall),
+    similarity,
+    complement,
+    style,
+    grade: gradeFor(overall, style),
     dimensions,
   };
 }
 
-export function pairScore(left: number, right: number, rule: ChemistryRule): number {
-  const gap = Math.abs(left - right);
-  if (rule.mode === "similar") {
-    return clamp(Math.round(100 - gap));
-  }
-
-  const distance = Math.abs(gap - rule.idealGap);
-  const maxDistance = Math.max(rule.idealGap, 100 - rule.idealGap);
-  if (maxDistance === 0) return 100;
-  return clamp(Math.round(100 - (distance / maxDistance) * 100));
+export function styleLabel(style: ChemistryStyle): string {
+  if (style === "harmony") return "조화형";
+  if (style === "complement") return "보완형";
+  return "섞인 사이";
 }
 
-function describeDimension(label: string, rule: ChemistryRule, gap: number, score: number): string {
-  if (rule.mode === "similar") {
-    if (score >= 88) return `${label} 점수가 가까워 이 장면에서는 설명이 거의 필요 없다.`;
-    if (score >= 70) return `${label} 점수는 조금씩 다르지만, 어느 쪽이 틀렸다고 느끼기 전이다.`;
-    return `${label} 점수 차이가 커서 같은 상황에서도 먼저 하는 행동이 갈린다.`;
-  }
-
-  if (score >= 85) return `${label} 간격이 적당해서 한쪽이 밀고 한쪽이 받아 주기 좋다.`;
-  if (gap < rule.idealGap) return `${label} 점수가 비슷해 보완보다는 같은 방향으로 기운다.`;
-  if (score >= 70) return `${label} 간격이 조금 넓지만, 한쪽이 판을 열고 한쪽이 받아 준다.`;
-  return `${label} 간격이 넓다. 한쪽은 성급하고, 다른 쪽은 답답하다고 느낄 수 있다.`;
+function complementOf(gap: number): number {
+  const distance = Math.abs(gap - 62);
+  return clamp(Math.round(100 - distance * 1.2));
 }
 
-function gradeFor(overall: number): ChemistryGrade {
+function styleFor(similarity: number, complement: number): ChemistryStyle {
+  if (complement >= similarity + 8) return "complement";
+  if (similarity >= complement + 8) return "harmony";
+  return "mixed";
+}
+
+function gradeFor(overall: number, style: ChemistryStyle): ChemistryGrade {
+  if (overall >= 95) {
+    return { id: "soul", label: "전생부터 친구형", headline: "만나기 전부터 알고 있던 사이" };
+  }
   if (overall >= 85) {
-    return { id: "spark", label: "환상의 케미", headline: "같이 있으면 판이 커지는 조합" };
+    if (style === "complement") {
+      return { id: "chaos", label: "환장의 보완형", headline: "한쪽이 터뜨리고 한쪽이 수습하는 조합" };
+    }
+    return { id: "duo", label: "환장의 단짝형", headline: "같이 있으면 판이 두 배가 되는 조합" };
   }
-  if (overall >= 72) {
-    return { id: "sync", label: "잘 맞는 친구", headline: "결은 통하고, 빈자리는 서로 메운다" };
+  if (overall >= 75) {
+    return { id: "banter", label: "티격태격 찰떡형", headline: "투닥거려도 결국 같이 있는 조합" };
   }
-  if (overall >= 58) {
-    return { id: "adjust", label: "맞춰 가는 사이", headline: "좋은 쪽에 가깝고, 속도만 맞추면 된다" };
+  if (overall >= 60) {
+    return { id: "odd", label: "묘하게 잘 맞는형", headline: "설명은 안 되는데 또 만나게 되는 조합" };
   }
-  return { id: "contrast", label: "결이 다른 친구", headline: "틀린 게 아니라, 노는 방식이 다르다" };
+  if (overall >= 40) {
+    return { id: "mystery", label: "왜 친구인지 미스터리형", headline: "결은 다른데 연락은 남는 조합" };
+  }
+  return { id: "miracle", label: "기적의 우정형", headline: "계산이 안 나와도 친구인 조합" };
+}
+
+function describeGap(label: string, gap: number): string {
+  if (gap <= 15) return `${label}이 비슷해서 이 장면에서는 말이 필요 없다.`;
+  if (gap >= 45) return `${label} 차이가 커서 역할이 갈린다.`;
+  return `${label}은 조금 다르고, 그 정도가 재미가 된다.`;
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return clamp(Math.round(values.reduce((sum, value) => sum + value, 0) / values.length));
 }
 
 function clamp(value: number): number {

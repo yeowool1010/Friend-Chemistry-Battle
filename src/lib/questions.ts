@@ -11,85 +11,101 @@ export interface Question {
   choices: Choice[];
 }
 
+const MARKS = ["①", "②", "③", "④"] as const;
+
+export function choiceMark(index: number): string {
+  return MARKS[index] ?? String(index + 1);
+}
+
 export const QUESTIONS: Question[] = [
   {
     id: "q1",
-    prompt: "금요일 밤, 친구가 “나와”라고 하면",
+    prompt: "친구랑 여행을 갔는데 기차 시간이 10분 남았다.",
     choices: [
-      { text: "누구랑 어디인지 묻기 전에 일단 나간다", scores: { energy: 4, adventure: 2, humor: 1 } },
-      { text: "누가 오는지 보고, 괜찮은 판이면 합류한다", scores: { energy: 2, planning: 2, empathy: 1 } },
-      { text: "나가기 애매하면 통화로 대신한다", scores: { empathy: 2, planning: 1 } },
-      { text: "이미 약속이 있어야 몸을 움직인다", scores: { energy: 1, planning: 4 } },
+      { text: "일단 뛰고 본다", scores: { spontaneous: 3 } },
+      { text: "다음 기차를 알아본다", scores: { planning: 3, realistic: 1 } },
+      { text: "친구에게 왜 늦었냐고 따진다", scores: { emotional: 2 } },
+      { text: "커피부터 산다", scores: { spontaneous: 2 } },
     ],
   },
   {
     id: "q2",
-    prompt: "친구가 말수를 줄이고 축 처져 있다",
+    prompt: "친구가 새벽 2시에 “야 지금 나와”라고 하면?",
     choices: [
-      { text: "옆에 앉아 이야기가 나올 때까지 들어 준다", scores: { empathy: 4 } },
-      { text: "먹을 걸 챙기며 기분을 슬쩍 살핀다", scores: { empathy: 3, humor: 1 } },
-      { text: "왜 그런지 그 자리에서 물어본다", scores: { empathy: 2, candor: 3 } },
-      { text: "혼자 있고 싶은 신호로 보고 자리를 비킨다", scores: { empathy: 2, planning: 1 } },
+      { text: "나감", scores: { spontaneous: 3, extrovert: 2 } },
+      { text: "이유부터 물어봄", scores: { realistic: 2, planning: 1 } },
+      { text: "읽고 자는 척", scores: { realistic: 2 } },
+      { text: "영상통화부터 검", scores: { emotional: 2, extrovert: 1 } },
     ],
   },
   {
     id: "q3",
-    prompt: "둘만 떠나는 짧은 여행이라면",
+    prompt: "친구가 연애 상담을 하면?",
     choices: [
-      { text: "이동이랑 밥까지 미리 정해 둔다", scores: { planning: 4 } },
-      { text: "큰 일정만 잡고 빈칸은 그날 정한다", scores: { planning: 2, adventure: 3 } },
-      { text: "표만 있으면 된다. 나머지는 발길 가는 대로", scores: { adventure: 4 } },
-      { text: "새로운 곳보다 익숙하고 편한 곳이 낫다", scores: { planning: 3, energy: 1 } },
+      { text: "현실적으로 말함", scores: { realistic: 3 } },
+      { text: "무조건 친구 편", scores: { emotional: 3 } },
+      { text: "상대방 입장도 생각함", scores: { emotional: 1, realistic: 2 } },
+      { text: "듣다가 내 연애 얘기함", scores: { extrovert: 2, spontaneous: 1 } },
     ],
   },
   {
     id: "q4",
-    prompt: "의견이 정반대로 갈릴 때",
+    prompt: "단톡에 “오늘 밥 ㄱ?”가 올라오면",
     choices: [
-      { text: "그 자리에서 내 생각을 또박또박 말한다", scores: { candor: 4 } },
-      { text: "상대 말을 한 번 더 듣고 내 쪽을 보탠다", scores: { candor: 2, empathy: 2 } },
-      { text: "분위기가 상하면 내 의견은 접어 둔다", scores: { empathy: 2 } },
-      { text: "사람들 앞은 넘기고, 나중에 둘만 있을 때 말한다", scores: { candor: 2, planning: 2 } },
+      { text: "어디? 바로 나감", scores: { extrovert: 3, spontaneous: 2 } },
+      { text: "메뉴랑 시간부터 정하자고 함", scores: { planning: 3 } },
+      { text: "이모지만 달고 눈치 봄", scores: { emotional: 2 } },
+      { text: "배달이 이득이라고 계산함", scores: { realistic: 3 } },
     ],
   },
   {
     id: "q5",
-    prompt: "처음 보는 메뉴를 고를 때",
+    prompt: "여행 숙소 사진이 실제랑 다르면",
     choices: [
-      { text: "설명이 낯설수록 그게 당긴다", scores: { adventure: 4, humor: 1 } },
-      { text: "친구가 고르면 대개 따라간다", scores: { adventure: 1, empathy: 2 } },
-      { text: "후기를 보고 실패 확률이 낮은 걸 고른다", scores: { planning: 3, adventure: 1 } },
-      { text: "늘 먹던 맛에서 잘 벗어나지 않는다", scores: { planning: 2 } },
+      { text: "일단 여기서 잠", scores: { spontaneous: 3 } },
+      { text: "바로 다른 숙소 검색", scores: { planning: 3, realistic: 1 } },
+      { text: "리뷰에 할 말 다 씀", scores: { emotional: 3 } },
+      { text: "환불 규정부터 봄", scores: { realistic: 3, planning: 1 } },
     ],
   },
   {
     id: "q6",
-    prompt: "단체 채팅에서 나는",
+    prompt: "주말에 약속이 하나도 없으면",
     choices: [
-      { text: "드립이 먼저고, 대화가 식으면 다시 불을 지핀다", scores: { humor: 4, energy: 3, candor: 1 } },
-      { text: "말은 짧아도 리액션은 빠르다", scores: { humor: 2, energy: 2 } },
-      { text: "필요한 말만 하고 채팅은 빨리 닫는다", scores: { planning: 2, candor: 2 } },
-      { text: "재미있는 걸 모아 두었다가 타이밍에 던진다", scores: { humor: 3, planning: 1 } },
+      { text: "아무나 불러서 나감", scores: { extrovert: 3, spontaneous: 2 } },
+      { text: "밀린 일부터 정리함", scores: { planning: 3, realistic: 1 } },
+      { text: "누가 연락 올 때까지 폰만 봄", scores: { emotional: 2 } },
+      { text: "혼자 있는 게 이득이라 집에 있음", scores: { realistic: 2 } },
     ],
   },
   {
     id: "q7",
-    prompt: "약속 시간 10분 전",
+    prompt: "친구가 갑자기 퇴사한다고 하면",
     choices: [
-      { text: "이미 도착해서 자리를 보고 있다", scores: { planning: 4 } },
-      { text: "딱 맞춰 들어가는 편이다", scores: { planning: 3, energy: 2 } },
-      { text: "가는 중이라는 말을 먼저 보낸다", scores: { planning: 1, humor: 2, energy: 2 } },
-      { text: "시간보다 흐름을 따라가다 늦을 때가 있다", scores: { adventure: 2, humor: 1 } },
+      { text: "축하부터 함", scores: { emotional: 2, spontaneous: 2 } },
+      { text: "다음 달 월세부터 물어봄", scores: { realistic: 3 } },
+      { text: "왜 그렇게 됐는지 같이 열받음", scores: { emotional: 3 } },
+      { text: "이력서 같이 보자고 함", scores: { planning: 3, realistic: 1 } },
     ],
   },
   {
     id: "q8",
-    prompt: "상대에게 서운한 일이 생기면",
+    prompt: "카톡이 왔는데 할 말이 애매하면",
     choices: [
-      { text: "쌓아 두면 더 싫어져서 바로 말한다", scores: { candor: 4, empathy: 1 } },
-      { text: "하루쯤 두고, 정리된 말로 다시 꺼낸다", scores: { candor: 3, planning: 3, empathy: 2 } },
-      { text: "티는 나지만 입 밖으로 꺼내진 않는다", scores: { candor: 1, empathy: 2, humor: 1 } },
-      { text: "농담으로 한 번 풀고, 그래도 남으면 그때 말한다", scores: { candor: 1, humor: 4, energy: 2 } },
+      { text: "보는 즉시 아무 말이나 보냄", scores: { spontaneous: 2, extrovert: 2 } },
+      { text: "문장 다듬어서 보냄", scores: { planning: 3 } },
+      { text: "감정 상하면 읽씹", scores: { emotional: 3 } },
+      { text: "용건 아니면 나중에", scores: { realistic: 2 } },
+    ],
+  },
+  {
+    id: "q9",
+    prompt: "같이 내기했는데 지면",
+    choices: [
+      { text: "한 판 더", scores: { spontaneous: 3, extrovert: 1 } },
+      { text: "왜 졌는지 복기함", scores: { planning: 2, realistic: 2 } },
+      { text: "말투부터 달아오름", scores: { emotional: 3 } },
+      { text: "이 판은 접고 밥 먹자", scores: { realistic: 2, planning: 1 } },
     ],
   },
 ];

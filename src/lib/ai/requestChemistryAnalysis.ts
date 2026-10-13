@@ -20,20 +20,12 @@ export async function requestChemistryAnalysis(input: AnalysisInput): Promise<An
     const personB = sanitizePerson(input.personB);
     const chemistry = calculateChemistry(personA.scores, personB.scores);
     const analysis = await createAiService().analyze({
-      personA: { name: personA.name },
-      personB: { name: personB.name },
-      overall: chemistry.overall,
-      gradeLabel: chemistry.grade.label,
-      gradeHeadline: chemistry.grade.headline,
-      dimensions: chemistry.dimensions.map((dimension) => ({
-        key: dimension.key,
-        label: dimension.label,
-        left: dimension.left,
-        right: dimension.right,
-        score: dimension.score,
-        comment: dimension.comment,
-        mode: dimension.mode,
-      })),
+      personA: { name: personA.name, scores: personA.scores },
+      personB: { name: personB.name, scores: personB.scores },
+      chemistry: chemistry.overall,
+      type: chemistry.grade.label,
+      similarity: chemistry.similarity,
+      complement: chemistry.complement,
     });
 
     const storageError = await saveChemistryResult({

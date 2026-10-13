@@ -1,12 +1,12 @@
 "use client";
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import {
   applyMinjiAnswers,
+  assignBattle,
+  beginAsGuest,
   getClientSnapshot,
   getServerSnapshot,
-  loadSamplePair,
   setAnswer,
   startAsUser,
   submitMyAnswers,
@@ -20,10 +20,11 @@ interface SessionContextValue {
   session: BattleSession;
   hydrated: boolean;
   startTest: (name: string) => void;
+  joinTest: (name: string, battleId: string) => void;
   chooseAnswer: (questionId: string, choiceIndex: number) => void;
   fillMinjiAnswers: () => void;
-  submitTest: () => boolean;
-  showSamplePair: () => void;
+  submitTest: () => BattleSession | null;
+  rememberBattle: (battleId: string, role: "host" | "guest", inviteToken: string | null) => void;
   reset: () => void;
 }
 
@@ -36,28 +37,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     session: snapshot.session,
     hydrated: snapshot.hydrated,
     startTest: (name) => updateSession(startAsUser(name)),
+    joinTest: (name, battleId) => updateSession(beginAsGuest(name, battleId)),
     chooseAnswer: (questionId, choiceIndex) => {
       updateSession(setAnswer(getClientSnapshot().session, questionId, choiceIndex));
     },
     fillMinjiAnswers: () => updateSession(applyMinjiAnswers(getClientSnapshot().session)),
     submitTest: () => {
       const next = submitMyAnswers(getClientSnapshot().session);
-      if (!next) return false;
+      if (!next) return null;
       updateSession(next);
-      return true;
+      return next;
     },
-    showSamplePair: () => updateSession(loadSamplePair()),
+    rememberBattle: (battleId, role, inviteToken) => {
+      updateSession(assignBattle(getClientSnapshot().session, battleId, role, inviteToken));
+    },
     reset: () => updateSession(createDefaultSession()),
   };
 
-  return (
-    <SessionContext.Provider value={value}>
-      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-4 py-6 sm:px-6">
-        <AppHeader />
-        <div className="flex-1">{children}</div>
-      </div>
-    </SessionContext.Provider>
-  );
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export function useSession(): SessionContextValue {

@@ -1,11 +1,6 @@
 import { QUESTIONS } from "@/lib/questions";
 import { isComplete, scoreAnswers } from "@/lib/scoring";
-import {
-  SAMPLE_JUNHO,
-  SAMPLE_MINJI,
-  cloneParticipant,
-  createDefaultSession,
-} from "@/lib/sampleData";
+import { SAMPLE_MINJI, createDefaultSession } from "@/lib/sampleData";
 import {
   TRAIT_KEYS,
   type AnswerMap,
@@ -14,7 +9,7 @@ import {
   type TraitScores,
 } from "@/lib/types";
 
-const STORAGE_KEY = "fcb-session-v1";
+const STORAGE_KEY = "fcb-session-v3";
 
 export function readSession(): BattleSession {
   if (typeof window === "undefined") return createDefaultSession();
@@ -47,15 +42,30 @@ export function startAsUser(name: string): BattleSession {
       scores: null,
       source: "user",
     },
-    partner: cloneParticipant(SAMPLE_JUNHO),
-    usingSamplePair: false,
+    battleId: null,
+    role: null,
+    inviteToken: null,
+  };
+}
+
+export function beginAsGuest(name: string, battleId: string): BattleSession {
+  return {
+    me: {
+      id: "me",
+      name: name.trim().slice(0, 12),
+      answers: {},
+      scores: null,
+      source: "user",
+    },
+    battleId,
+    role: "guest",
+    inviteToken: null,
   };
 }
 
 export function setAnswer(session: BattleSession, questionId: string, choiceIndex: number): BattleSession {
   return {
     ...session,
-    usingSamplePair: false,
     me: {
       ...session.me,
       source: "user",
@@ -68,7 +78,6 @@ export function setAnswer(session: BattleSession, questionId: string, choiceInde
 export function applyMinjiAnswers(session: BattleSession): BattleSession {
   return {
     ...session,
-    usingSamplePair: false,
     me: {
       ...session.me,
       source: "user",
@@ -83,7 +92,6 @@ export function submitMyAnswers(session: BattleSession): BattleSession | null {
 
   return {
     ...session,
-    usingSamplePair: false,
     me: {
       ...session.me,
       source: "user",
@@ -92,12 +100,13 @@ export function submitMyAnswers(session: BattleSession): BattleSession | null {
   };
 }
 
-export function loadSamplePair(): BattleSession {
-  return {
-    me: cloneParticipant(SAMPLE_MINJI),
-    partner: cloneParticipant(SAMPLE_JUNHO),
-    usingSamplePair: true,
-  };
+export function assignBattle(
+  session: BattleSession,
+  battleId: string,
+  role: "host" | "guest",
+  inviteToken: string | null,
+): BattleSession {
+  return { ...session, battleId, role, inviteToken };
 }
 
 function parseSession(value: unknown): BattleSession {
@@ -105,11 +114,13 @@ function parseSession(value: unknown): BattleSession {
 
   const raw = value as Partial<BattleSession>;
   const fallback = createDefaultSession();
+  const role = raw.role === "host" || raw.role === "guest" ? raw.role : null;
 
   return {
     me: normalizeParticipant(raw.me, fallback.me),
-    partner: normalizeParticipant(raw.partner, fallback.partner),
-    usingSamplePair: raw.usingSamplePair === true,
+    battleId: typeof raw.battleId === "string" && raw.battleId ? raw.battleId : null,
+    role,
+    inviteToken: typeof raw.inviteToken === "string" && raw.inviteToken ? raw.inviteToken : null,
   };
 }
 

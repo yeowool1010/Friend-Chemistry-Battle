@@ -12,3 +12,21 @@ create table if not exists public.chemistry_results (
 );
 
 alter table public.chemistry_results enable row level security;
+
+create table if not exists public.battles (
+  id uuid primary key default gen_random_uuid(),
+  host_name text not null,
+  host_answers jsonb not null,
+  host_scores jsonb not null,
+  host_token uuid not null,
+  guest_name text,
+  guest_answers jsonb,
+  guest_scores jsonb,
+  guest_token uuid,
+  overall integer,
+  grade_label text,
+  analysis jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.battles enable row level security;

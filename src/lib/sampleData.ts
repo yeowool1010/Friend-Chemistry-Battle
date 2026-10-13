@@ -2,8 +2,8 @@ import { QUESTIONS } from "@/lib/questions";
 import { isComplete, scoreAnswers } from "@/lib/scoring";
 import type { AnswerMap, BattleSession, Participant } from "@/lib/types";
 
-const MINJI_CHOICES = [0, 1, 1, 0, 0, 3, 1, 0];
-const JUNHO_CHOICES = [1, 1, 1, 3, 2, 3, 1, 2];
+const MINJI_CHOICES = [0, 0, 3, 0, 0, 0, 0, 0, 0];
+const JUNHO_CHOICES = [1, 1, 0, 1, 1, 1, 3, 1, 1];
 
 export interface SampleProfile {
   participant: Participant;
@@ -24,30 +24,6 @@ export const SAMPLE_PROFILES: SampleProfile[] = [
   },
 ];
 
-export type PairKind = "user" | "sample" | "fallback";
-
-export interface ResolvedPair {
-  me: Participant;
-  partner: Participant;
-  kind: PairKind;
-}
-
-export function resolveBattlePair(session: BattleSession): ResolvedPair {
-  if (session.me.scores && session.partner.scores) {
-    return {
-      me: session.me,
-      partner: session.partner,
-      kind: session.usingSamplePair ? "sample" : "user",
-    };
-  }
-
-  return {
-    me: SAMPLE_MINJI,
-    partner: SAMPLE_JUNHO,
-    kind: "fallback",
-  };
-}
-
 export function createDefaultSession(): BattleSession {
   return {
     me: {
@@ -57,8 +33,9 @@ export function createDefaultSession(): BattleSession {
       scores: null,
       source: "user",
     },
-    partner: cloneParticipant(SAMPLE_JUNHO),
-    usingSamplePair: false,
+    battleId: null,
+    role: null,
+    inviteToken: null,
   };
 }
 

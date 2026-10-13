@@ -1,11 +1,4 @@
-export const TRAIT_KEYS = [
-  "energy",
-  "empathy",
-  "planning",
-  "candor",
-  "adventure",
-  "humor",
-] as const;
+export const TRAIT_KEYS = ["spontaneous", "planning", "emotional", "extrovert", "realistic"] as const;
 
 export type TraitKey = (typeof TRAIT_KEYS)[number];
 
@@ -18,12 +11,11 @@ export interface TraitMeta {
 }
 
 export const TRAITS: TraitMeta[] = [
-  { key: "energy", label: "에너지", description: "같이 있을 때 템포" },
-  { key: "empathy", label: "공감", description: "감정 신호를 읽는 정도" },
-  { key: "planning", label: "계획", description: "미리 정해 두고 움직이는 정도" },
-  { key: "candor", label: "솔직", description: "할 말을 바로 꺼내는 정도" },
-  { key: "adventure", label: "모험", description: "새로운 판을 여는 정도" },
-  { key: "humor", label: "유머", description: "장난과 드립의 농도" },
+  { key: "spontaneous", label: "즉흥성", description: "일단 움직이고 보는 정도" },
+  { key: "planning", label: "계획성", description: "다음 수를 먼저 두는 정도" },
+  { key: "emotional", label: "감정성", description: "공기와 기분을 먼저 읽는 정도" },
+  { key: "extrovert", label: "외향성", description: "판을 열고 사람을 부르는 정도" },
+  { key: "realistic", label: "현실성", description: "재미 다음의 계산을 보는 정도" },
 ];
 
 export type AnswerMap = Partial<Record<string, number>>;
@@ -38,6 +30,7 @@ export interface Participant {
 
 export interface BattleSession {
   me: Participant;
-  partner: Participant;
-  usingSamplePair: boolean;
+  battleId: string | null;
+  role: "host" | "guest" | null;
+  inviteToken: string | null;
 }

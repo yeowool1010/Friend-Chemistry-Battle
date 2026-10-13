@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
-import { WaitingScreen } from "@/components/WaitingScreen";
-
-export const metadata: Metadata = {
-  title: "대기",
-};
+import { redirect } from "next/navigation";
 
 export default function WaitingPage() {
-  return <WaitingScreen />;
+  redirect("/profile");
 }

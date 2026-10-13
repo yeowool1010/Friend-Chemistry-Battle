@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Black_Han_Sans, IBM_Plex_Sans_KR } from "next/font/google";
+import { AppHeader } from "@/components/AppHeader";
 import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
@@ -27,7 +29,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className={`${display.variable} ${body.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-4 py-6 sm:px-6">
+            <Suspense fallback={<p className="mb-8 h-16 border-b-2 border-ink" />}>
+              <AppHeader />
+            </Suspense>
+            <div className="flex-1">{children}</div>
+          </div>
+        </SessionProvider>
       </body>
     </html>
   );

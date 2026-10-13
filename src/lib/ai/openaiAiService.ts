@@ -53,31 +53,32 @@ function systemPrompt(names: string[]): string {
       ? `troubleMaker와 fixer는 ${names[0]}, ${names[1]} 중에서 서로 다른 이름이어야 한다.`
       : "이름이 하나면 두 역할 모두 그 이름이다.";
   return [
-    "친구 케미의 문장만 쓴다.",
-    "score와 type은 서버가 이미 정한 값이다. 점수를 다시 계산하거나 출력에 점수를 넣지 않는다.",
-    "성향 키는 energy 에너지, empathy 공감, planning 계획, candor 솔직, adventure 모험, humor 유머다.",
-    "headline은 둘의 역할을 한 줄로 짓는다.",
-    "troubleMaker는 판을 흔드는 사람의 이름, fixer는 그 뒤를 정리하는 사람의 이름이다.",
+    "두 친구의 성향을 바탕으로 친구끼리 공유하고 웃을 수 있는 결과를 작성해.",
+    "진지한 심리 분석처럼 말하지 않는다.",
+    "20대~30대 인터넷 밈 말투를 살짝 사용한다.",
+    "누군가를 공격하지 않는다.",
+    "민감한 성격 평가를 하지 않는다.",
+    "문장은 짧게 작성한다.",
+    "chemistry와 type은 서버가 이미 정한 값이다. 점수를 다시 계산하거나 출력에 점수를 넣지 않는다.",
+    "성향 키는 spontaneous 즉흥성, planning 계획성, emotional 감정성, extrovert 외향성, realistic 현실성이다.",
+    "headline은 한줄요약이다.",
+    "troubleMaker는 사고치는 사람의 이름, fixer는 수습하는 사람의 이름이다.",
     pair,
-    "travel은 같이 여행할 때 벌어지는 한 장면이다.",
-    "summary는 이 우정을 한 문장으로 붙인다.",
+    "travel은 둘이 여행 갔을 때 한 장면이다.",
+    "meal은 둘이 밥 먹을 때 한 장면이다. 술, 음주, 술자리는 쓰지 않는다.",
+    "summary는 친구 관계 총평이다.",
     "모두 한국어로 쓴다.",
   ].join("\n");
 }
 
 function buildPayload(request: AiAnalysisRequest) {
-  const personA: Record<string, string | number> = { name: request.personA.name };
-  const personB: Record<string, string | number> = { name: request.personB.name };
-  for (const dimension of request.dimensions) {
-    personA[dimension.key] = dimension.left;
-    personB[dimension.key] = dimension.right;
-  }
-
   return {
-    score: request.overall,
-    type: request.gradeLabel,
-    personA,
-    personB,
+    personA: { name: request.personA.name, ...request.personA.scores },
+    personB: { name: request.personB.name, ...request.personB.scores },
+    chemistry: request.chemistry,
+    type: request.type,
+    similarity: request.similarity,
+    complement: request.complement,
   };
 }
 
@@ -90,9 +91,10 @@ function copySchema(names: string[]) {
       troubleMaker: person,
       fixer: person,
       travel: { type: "string" },
+      meal: { type: "string" },
       summary: { type: "string" },
     },
-    required: ["headline", "troubleMaker", "fixer", "travel", "summary"],
+    required: ["headline", "troubleMaker", "fixer", "travel", "meal", "summary"],
     additionalProperties: false,
   };
 }
@@ -128,13 +130,14 @@ function parseCopy(text: string, names: string[]): Omit<AiAnalysis, "providerId"
   const troubleMaker = requireName(parsed.troubleMaker, names, "troubleMaker");
   const fixer = requireName(parsed.fixer, names, "fixer");
   const travel = requireText(parsed.travel, "travel");
+  const meal = requireText(parsed.meal, "meal");
   const summary = requireText(parsed.summary, "summary");
 
   if (names.length === 2 && troubleMaker === fixer) {
     throw new Error("OpenAI가 두 역할을 한 사람에게 몰았습니다.");
   }
 
-  return { headline, troubleMaker, fixer, travel, summary };
+  return { headline, troubleMaker, fixer, travel, meal, summary };
 }
 
 function requireText(value: unknown, field: string): string {
