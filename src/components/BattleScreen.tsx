@@ -172,11 +172,11 @@ function HostWaiting({ hostName, battleId }: { hostName: string; battleId: strin
         <h1 className="mt-2 text-3xl font-semibold">{hostName}의 초대</h1>
         <p className="mt-4 whitespace-pre-line border-2 border-ink bg-paper px-4 py-3 text-sm leading-7">{`나 테스트했는데\n우리 둘 케미 몇 점인지 해볼래? ㅋㅋ\n\n${link}`}</p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" className={primaryButton} disabled={pending} onClick={inviteOnKakao}>
+          {/* <button type="button" className={primaryButton} disabled={pending} onClick={inviteOnKakao}>
             {pending ? "카톡을 여는 중" : "카톡으로 초대하기"}
-          </button>
+          </button> */}
           <button type="button" className={secondaryButton} onClick={copyInvite}>
-            {copied ? "문구를 복사했다" : "문구 복사"}
+            {copied ? "문구를 복사완료" : "문구 복사"}
           </button>
         </div>
         {notice ? <p className="mt-3 text-sm text-a">{notice}</p> : null}
@@ -297,7 +297,7 @@ function ChemistryResult({
           {pending ? "새 링크를 만드는 중" : "이번엔 다른 친구랑 해보기"}
         </button>
         <button type="button" className={secondaryButton} onClick={share}>
-          {copied ? "공유 문구를 복사했다" : "SNS 공유"}
+          {copied ? "공유 문구를 복사완료" : "SNS 공유"}
         </button>
       </div>
       <p className="text-sm leading-6 text-muted">카톡에 링크를 붙이면 초대 사진이 같이 보여요.</p>
