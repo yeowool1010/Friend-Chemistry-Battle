@@ -16,7 +16,7 @@ export function SiteHeader() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold tracking-[0.18em] text-muted">SHOP SIM</p>
-          <p className="font-display text-3xl">가게 시뮬</p>
+          <p className="font-display text-3xl">창업 시뮬레이션</p>
         </div>
         <nav className="flex gap-2">
           {links.map((link) => {

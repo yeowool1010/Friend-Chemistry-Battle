@@ -21,8 +21,8 @@ const siteUrl = (readServerEnv("SITE_URL") ?? "http://localhost:3000").replace(/
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "가게 시뮬",
-    template: "%s · 가게 시뮬",
+    default: "창업 시뮬레이션",
+    template: "%s · 창업 시뮬레이션",
   },
   description: "업종, 지역, 예산으로 창업 준비를 계산한다.",
 };
