@@ -1,6 +1,6 @@
-# 친구 케미 배틀
+# 가게 시뮬
 
-두 사람의 테스트 점수로 케미를 계산하는 Next.js 앱이다. 점수는 서버가 계산하고, 문장은 Gemini가 만든다. `sk-`로 시작하는 OpenAI 키가 있을 때만 OpenAI를 쓴다. 결과는 Supabase `chemistry_results`에 저장한다.
+업종, 지역, 예산을 넣으면 창업 전·중·후를 계산하는 Next.js 앱이다. 월세와 매출 구간은 계획용 기준이고, 문장만 Gemini가 다듬는다. 상가정보 API 키가 있으면 반경 500m 점포 수를 함께 보여 준다. `/ask`에서는 질문을 받아 상가·업종코드·인허가·예산 계산 자료를 카드로 정리한다.
 
 ## 실행
 
@@ -9,23 +9,13 @@ npm install
 npm run dev
 ```
 
-`.env.local`에 Supabase 주소, 비밀 키, Gemini API 키를 둔다. 예시는 `.env.example`에 있다.
+`.env.local` 예시는 `.env.example`에 있다. Gemini 키와 공공데이터포털 서비스 키가 없어도 계획 계산은 나온다.
 
 브라우저에서 http://localhost:3000 을 연다.
 
-## 화면
+## 계산
 
-- `/` 첫 화면. 예시 결과와 테스트 시작.
-- `/test` 닉네임과 아홉 문항. 정답은 없다.
-- `/profile` 개인 유형. 여기서 친구 초대 링크를 만든다.
-- `/c/[code]` 친구용 초대 화면. 친구가 같은 테스트를 끝내면 둘의 케미가 열린다.
-
-진행 중 답안은 이 브라우저 탭의 sessionStorage에 남는다. 완성된 분석은 Supabase에 저장한다.
-
-## 계산과 외부 서비스
-
-- 답안 → 점수: `src/lib/scoring.ts`
-- 두 점수 → 케미: `src/lib/chemistry.ts`
-- AI 교체 지점: `src/lib/ai/aiService.ts`
-- Supabase 저장: `src/lib/supabase/results.ts`
-- 테이블 정의: `supabase/schema.sql`
+- 자금, 후보 지역, 부담, 손익 시나리오: `src/lib/simulate.ts`
+- 업종·지역 기준표: `src/lib/catalog.ts`
+- 실시간 점포 수와 안내 문장: `src/lib/enrich.ts`
+- 자료 질문: `src/lib/ask.ts`
