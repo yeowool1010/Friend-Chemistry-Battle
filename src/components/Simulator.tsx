@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { DEPOSIT_MONTHS, PLANNING_NOTE } from "@/lib/catalog";
 import { competitionDetail, judgeCompetition } from "@/lib/competition";
 import { draftOpening, draftOutcome, enrichSimulation, loadAreaResidents, type OpeningDraft, type OpeningEnding, type ResidentPopulation, type StoreCount } from "@/lib/enrich";
 import { INDUSTRY_GROUPS } from "@/lib/industries";
 import { dongsInSigngu, planningDistrictId, REGIONS } from "@/lib/regions";
+import { clearSaved, loadSaved, sameSnapshot, savedSimulationId, savedSimulationLabel, upsertSaved, writeSaved, type SavedSimulation } from "@/lib/savedSimulations";
 import { formatMan, formatManHangul, hopeOutOfReach, simulate, type Simulation } from "@/lib/simulate";
 
 export function Simulator() {
@@ -28,13 +29,55 @@ export function Simulator() {
   const [planPending, setPlanPending] = useState(false);
   const [outcomePending, setOutcomePending] = useState(false);
   const [pending, setPending] = useState(false);
+  const [saves, setSaves] = useState<SavedSimulation[]>([]);
+  const [pickedSave, setPickedSave] = useState("");
+  const [saveNote, setSaveNote] = useState("");
   const runId = useRef(0);
   const basisRef = useRef("");
+  const captured = useRef<Pick<SavedSimulation, "industryId" | "siName" | "guCode" | "dongCode" | "budget" | "pyeong" | "ending" | "residentLabel"> | null>(null);
   const recommending = siName === "recommend";
   const si = REGIONS.find((item) => item.name === siName);
   const gu = si?.gus.find((item) => item.code === guCode) ?? si?.gus[0];
   const large = INDUSTRY_GROUPS.find((item) => item.code === largeCode) ?? INDUSTRY_GROUPS[0];
   const industry = large.industries.find((item) => item.id === industryId) ?? large.industries[0];
+
+  useEffect(() => {
+    setSaves(loadSaved());
+  }, []);
+
+  const canSave = Boolean(result && plan && !pending && !planPending && !outcomePending && !residentPending);
+
+  function keepResult() {
+    const basis = captured.current ?? {
+      industryId,
+      siName,
+      guCode: recommending ? "" : (gu?.code ?? guCode),
+      dongCode: recommending ? "" : dongCode,
+      budget: String(Number(budget.replace(/,/g, ""))),
+      pyeong: String(Number(pyeong)),
+      ending: shownEnding,
+      residentLabel,
+    };
+    if (!result || !plan || !canSave) return;
+    const next: SavedSimulation = {
+      ...basis,
+      id: savedSimulationId(basis),
+      savedAt: Date.now(),
+      result,
+      stores,
+      residents,
+      plan,
+    };
+    setSaves((current) => {
+      const previous = current.find((item) => item.id === next.id);
+      if (previous && sameSnapshot(previous, next)) return current;
+      const stored = upsertSaved(current, next);
+      writeSaved(stored);
+      return stored;
+    });
+    setPickedSave(next.id);
+    setSaveNote("창업 중, 창업 후, 창업결과를 이 브라우저에 저장했습니다.");
+  }
 
   function chooseLarge(code: string) {
     const next = INDUSTRY_GROUPS.find((item) => item.code === code);
@@ -96,10 +139,26 @@ export function Simulator() {
     runId.current = id;
     const budgetValue = Number(chosenBudget.replace(/,/g, ""));
     const pyeongValue = Number(chosenPyeong);
-    const key = [chosenIndustry, chosenSi, chosenRecommend ? "" : chosenGu, chosenRecommend ? "" : chosenDong, budgetValue, pyeongValue].join("|");
+    const savedGu = chosenRecommend ? "" : chosenGu;
+    const savedDong = chosenRecommend ? "" : chosenDong;
+    const selectedSi = REGIONS.find((item) => item.name === chosenSi);
+    const selectedGu = selectedSi?.gus.find((item) => item.code === chosenGu) ?? selectedSi?.gus[0];
+    const selectedDong = selectedGu?.dongs.find((dong) => dong.code === chosenDong);
+    captured.current = {
+      industryId: chosenIndustry,
+      siName: chosenSi,
+      guCode: savedGu,
+      dongCode: savedDong,
+      budget: String(budgetValue),
+      pyeong: String(pyeongValue),
+      ending: chosenEnding,
+      residentLabel: chosenRecommend ? "" : (selectedDong?.name ?? ""),
+    };
+    const key = [chosenIndustry, chosenSi, savedGu, savedDong, budgetValue, pyeongValue].join("|");
     if (basisRef.current === key && plan && result) {
       const previousEnding = shownEnding;
       setShownEnding(chosenEnding);
+      setSaveNote("");
       setOutcomePending(true);
       const competition = stores ? judgeCompetition(stores) : null;
       void draftOutcome({
@@ -122,6 +181,7 @@ export function Simulator() {
         .then((outcome) => {
           if (id !== runId.current) return;
           if (!outcome) {
+            if (captured.current) captured.current.ending = previousEnding;
             setShownEnding(previousEnding);
             return;
           }
@@ -133,9 +193,8 @@ export function Simulator() {
       return;
     }
     basisRef.current = key;
-    const selectedSi = REGIONS.find((item) => item.name === chosenSi);
-    const selectedGu = selectedSi?.gus.find((item) => item.code === chosenGu) ?? selectedSi?.gus[0];
-    const selectedDong = selectedGu?.dongs.find((dong) => dong.code === chosenDong);
+    setPickedSave("");
+    setSaveNote("");
     const place = selectedSi && selectedGu ? `${selectedSi.name} ${selectedGu.name}` : "";
     const next = simulate({
       industryId: chosenIndustry,
@@ -234,6 +293,51 @@ export function Simulator() {
           setOutcomePending(false);
         }
       });
+  }
+
+  function viewSaved(id: string) {
+    const item = saves.find((entry) => entry.id === id);
+    if (!item) {
+      setPickedSave("");
+      return;
+    }
+    runId.current += 1;
+    captured.current = {
+      industryId: item.industryId,
+      siName: item.siName,
+      guCode: item.guCode,
+      dongCode: item.dongCode,
+      budget: item.budget,
+      pyeong: item.pyeong,
+      ending: item.ending,
+      residentLabel: item.residentLabel,
+    };
+    basisRef.current = [item.industryId, item.siName, item.guCode, item.dongCode, Number(item.budget), Number(item.pyeong)].join("|");
+    setPickedSave(id);
+    setLargeCode(item.result.industry.largeCode);
+    setIndustryId(item.industryId);
+    setSiName(item.siName);
+    setGuCode(item.guCode);
+    setDongCode(item.dongCode);
+    setBudget(item.budget);
+    setPyeong(item.pyeong);
+    setEnding(item.ending);
+    setShownEnding(item.ending);
+    setResidentLabel(item.residentLabel);
+    setResult(item.result);
+    setStores(item.stores);
+    setResidents(item.residents);
+    setPlan(item.plan);
+    setPending(false);
+    setPlanPending(false);
+    setOutcomePending(false);
+    setResidentPending(false);
+  }
+
+  function removeSaved() {
+    clearSaved();
+    setSaves([]);
+    setPickedSave("");
   }
 
   return (
@@ -349,8 +453,33 @@ export function Simulator() {
             랜덤 창업 시뮬레이션
           </button>
         </div>
+        <div className="flex flex-col gap-3 border-t-2 border-ink pt-4 sm:flex-row sm:items-end">
+          <label className="flex min-w-0 flex-1 flex-col gap-2 text-sm font-semibold">
+            저장한 계산
+            <select className={fieldClass} value={saves.some((item) => item.id === pickedSave) ? pickedSave : ""} onChange={(event) => viewSaved(event.target.value)}>
+              <option value="">계산을 고르면 그 결과를 봅니다</option>
+              {saves.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {savedSimulationLabel(item)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className={secondaryButton} disabled={saves.length === 0} onClick={removeSaved}>
+            로컬 데이터 삭제
+          </button>
+        </div>
+        <p className="text-sm font-normal text-muted">저장은 이 결과 저장을 눌렀을 때만 이 브라우저에 남습니다. 같은 조건과 결말은 최신 결과로 바뀝니다.</p>
       </form>
 
+      {result ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className={secondaryButton} disabled={!canSave} onClick={keepResult}>
+            이 결과 저장
+          </button>
+          <p className="text-sm text-muted">{saveNote || (canSave ? "창업 중, 창업 후, 창업결과를 저장합니다." : "창업 중, 창업 후, 창업결과가 정리된 뒤 저장할 수 있습니다.")}</p>
+        </div>
+      ) : null}
       {result ? <Result result={result} stores={stores} residents={residents} residentLabel={residentLabel} residentPending={residentPending} plan={plan} planPending={planPending} outcomePending={outcomePending} pending={pending} ending={shownEnding} /> : null}
     </main>
   );
