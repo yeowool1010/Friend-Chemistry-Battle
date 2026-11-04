@@ -93,6 +93,7 @@ export function buildPlaySetup(draft: ChatDraft): PlaySetup | null {
   const dong = draft.residentLabel;
   const seed = hash(`${result.place}|${dong}|${industry}|${budget}`);
   const playedBudget = Math.min(Math.max(budget, 500), 100_000);
+  const pyeong = Math.min(80, Math.max(5, Math.round(draft.pyeong ?? 15)));
   const interiorCost = Math.max(0, Math.round(result.split.interior));
   const monthlyRent = result.planned ? Math.max(8, Math.round(result.split.marketRent)) : Math.max(8, Math.round(playedBudget * 0.018));
   const salesMid = draft.plan?.sales.mid ?? 0;
@@ -117,7 +118,7 @@ export function buildPlaySetup(draft: ChatDraft): PlaySetup | null {
     monthlySales,
     population: draft.residents?.population ?? null,
     storeCount: draft.stores?.count ?? null,
-    pyeong: 15,
+    pyeong,
     interiorCost,
     contract: "월세",
     deposit: 0,

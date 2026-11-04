@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { DEPOSIT_MONTHS, PLANNING_NOTE } from "@/lib/catalog";
@@ -8,6 +9,9 @@ import { draftOpening, draftOutcome, enrichSimulation, loadAreaResidents, type O
 import { INDUSTRY_GROUPS } from "@/lib/industries";
 import { dongsInSigngu, planningDistrictId, REGIONS } from "@/lib/regions";
 import { clearSaved, loadSaved, sameSnapshot, savedSimulationId, savedSimulationLabel, upsertSaved, writeSaved, type SavedSimulation } from "@/lib/savedSimulations";
+import { applyShopMarket, applyShopVoice, buildPlaySetup, savePlaySetup } from "@/lib/play";
+import { type ChatDraft } from "@/lib/savedChats";
+import { draftShopMarket, draftShopVoice } from "@/lib/shopVoice";
 import { formatMan, formatManHangul, hopeOutOfReach, simulate, type Simulation } from "@/lib/simulate";
 
 export function Simulator() {
@@ -32,6 +36,8 @@ export function Simulator() {
   const [saves, setSaves] = useState<SavedSimulation[]>([]);
   const [pickedSave, setPickedSave] = useState("");
   const [saveNote, setSaveNote] = useState("");
+  const [playPending, setPlayPending] = useState(false);
+  const router = useRouter();
   const runId = useRef(0);
   const basisRef = useRef("");
   const captured = useRef<Pick<SavedSimulation, "industryId" | "siName" | "guCode" | "dongCode" | "budget" | "pyeong" | "ending" | "residentLabel"> | null>(null);
@@ -344,6 +350,72 @@ export function Simulator() {
     setResidentPending(false);
   }
 
+  function currentDraft(): ChatDraft | null {
+    const budgetValue = Number(budget.replace(/,/g, ""));
+    const pyeongValue = Number(pyeong);
+    if (!Number.isFinite(budgetValue) || budgetValue <= 0) return null;
+    const chosenRecommend = siName === "recommend";
+    const selectedDong = gu?.dongs.find((dong) => dong.code === dongCode);
+    const place = si && gu ? `${si.name} ${gu.name}` : "";
+    const savedGu = chosenRecommend ? "" : (gu?.code ?? "");
+    const savedDong = chosenRecommend ? "" : dongCode;
+    const key = [industryId, siName, savedGu, savedDong, budgetValue, Number.isFinite(pyeongValue) ? pyeongValue : 15].join("|");
+    const same = basisRef.current === key && result != null;
+    const next = same
+      ? result
+      : simulate({
+          industryId,
+          districtId: chosenRecommend || !gu ? "recommend" : planningDistrictId(gu.code),
+          place,
+          dongScope: false,
+          budget: budgetValue,
+          pyeong: Number.isFinite(pyeongValue) ? pyeongValue : 15,
+        });
+    return {
+      largeCode,
+      industryId,
+      siName,
+      guCode: savedGu,
+      dongCode: savedDong,
+      budget: budgetValue,
+      result: next,
+      stores: same ? stores : null,
+      residents: same ? residents : null,
+      residentLabel: chosenRecommend ? "" : (selectedDong?.name ?? ""),
+      plan: same ? plan : null,
+      pyeong: Number.isFinite(pyeongValue) ? pyeongValue : 15,
+    };
+  }
+
+  async function startPlay() {
+    const draft = currentDraft();
+    const setup = draft ? buildPlaySetup(draft) : null;
+    if (!setup || playPending) return;
+    setPlayPending(true);
+    try {
+      const asked = {
+        largeName: setup.largeName,
+        industry: setup.industry,
+        place: setup.place,
+        dong: setup.dong,
+        budget: setup.budget,
+        pyeong: setup.pyeong,
+      };
+      const [voice, market] = await Promise.all([
+        draftShopVoice(asked),
+        draftShopMarket({ ...asked, anchorRent: setup.areaRent, interior: setup.interiorCost }),
+      ]);
+      const withVoice = voice ? applyShopVoice(setup, voice) : setup;
+      savePlaySetup(market ? applyShopMarket(withVoice, market) : withVoice);
+      router.push("/play");
+    } catch {
+      savePlaySetup(setup);
+      router.push("/play");
+    } finally {
+      setPlayPending(false);
+    }
+  }
+
   function removeSaved() {
     clearSaved();
     setSaves([]);
@@ -461,6 +533,9 @@ export function Simulator() {
           </button>
           <button type="button" className={secondaryButton} onClick={rollRandom}>
             랜덤 창업 시뮬레이션
+          </button>
+          <button type="button" className={primaryButton} onClick={startPlay} disabled={playPending || !Number.isFinite(Number(budget.replace(/,/g, ""))) || Number(budget.replace(/,/g, "")) <= 0}>
+            {playPending ? "지역 시세와 업종을 맞추는 중" : "이 조건으로 창업 시작하기"}
           </button>
         </div>
         <div className="flex flex-col gap-3 border-t-2 border-ink pt-4 sm:flex-row sm:items-end">

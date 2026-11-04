@@ -17,6 +17,7 @@ export type ChatDraft = {
   residents: ResidentPopulation | null;
   residentLabel: string;
   plan: OpeningDraft | null;
+  pyeong?: number;
 };
 
 type TextMessage = { id: string; role: "bot" | "user"; kind: "text"; text: string; pending?: boolean };
