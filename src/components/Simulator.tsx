@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { DEPOSIT_MONTHS, PLANNING_NOTE } from "@/lib/catalog";
-import { competitionDetail, judgeCompetition } from "@/lib/competition";
+import { competitionDetail, describeStores, judgeCompetition } from "@/lib/competition";
 import { draftOpening, draftOutcome, enrichSimulation, loadAreaResidents, type OpeningDraft, type OpeningEnding, type ResidentPopulation, type StoreCount } from "@/lib/enrich";
 import { INDUSTRY_GROUPS } from "@/lib/industries";
 import { dongsInSigngu, planningDistrictId, REGIONS } from "@/lib/regions";
@@ -160,7 +160,7 @@ export function Simulator() {
       setShownEnding(chosenEnding);
       setSaveNote("");
       setOutcomePending(true);
-      const competition = stores ? judgeCompetition(stores) : null;
+      const facts = describeStores(stores);
       void draftOutcome({
         ending: chosenEnding,
         hopeImpossible: chosenEnding === "hope" && hopeOutOfReach(budgetValue, result.split, result.planned),
@@ -174,8 +174,12 @@ export function Simulator() {
         runway: result.split.runway,
         rent: result.planned ? result.split.marketRent : null,
         gap: result.split.gap,
-        storeCount: competition ? competition.count : (stores?.count ?? null),
+        storeCount: facts.storeCount,
+        districtStores: facts.districtStores,
+        focusStores: facts.focusStores,
+        distribution: facts.distribution,
         population: residents?.population ?? null,
+        households: residents?.households ?? null,
         salesMid: plan.sales.mid > 0 ? plan.sales.mid : null,
       })
         .then((outcome) => {
@@ -240,8 +244,7 @@ export function Simulator() {
       });
     void Promise.all([storeTask, peopleTask])
       .then(([stores, population]) => {
-        const competition = stores ? judgeCompetition(stores) : null;
-        const ratio = competition?.ratio ?? competition?.densestRatio ?? null;
+        const facts = describeStores(stores);
         return draftOpening({
           industry: `${next.industry.largeName} ${next.industry.label}`,
           place: next.place,
@@ -249,13 +252,16 @@ export function Simulator() {
           pyeong: pyeongValue,
           interior: next.split.interior,
           rent: next.planned ? next.split.marketRent : null,
-          storeCount: competition ? competition.count : (stores?.count ?? null),
-          storeMedian: competition?.median ?? null,
-          storeRatio: ratio,
+          storeCount: facts.storeCount,
+          storeMedian: facts.storeMedian,
+          storeRatio: facts.storeRatio,
+          districtStores: facts.districtStores,
+          focusStores: facts.focusStores,
+          distribution: facts.distribution,
           population: population?.population ?? null,
           households: population?.households ?? null,
           scope: pickedDong?.name || "시군구 전체",
-        }).then((draft) => ({ draft, population, competition }));
+        }).then((draft) => ({ draft, population, facts }));
       })
       .then((loaded) => {
         if (id !== runId.current) return null;
@@ -278,8 +284,12 @@ export function Simulator() {
           runway: next.split.runway,
           rent: next.planned ? next.split.marketRent : null,
           gap: next.split.gap,
-          storeCount: loaded.competition ? loaded.competition.count : null,
+          storeCount: loaded.facts.storeCount,
+          districtStores: loaded.facts.districtStores,
+          focusStores: loaded.facts.focusStores,
+          distribution: loaded.facts.distribution,
           population: loaded.population?.population ?? null,
+          households: loaded.population?.households ?? null,
           salesMid: loaded.draft.sales.mid > 0 ? loaded.draft.sales.mid : null,
         });
       })
@@ -542,6 +552,25 @@ function Result({
       </section>
 
       <section className={`${cardClass} p-5 sm:p-6`}>
+        <p className={`text-sm font-semibold ${ending === "hope" ? "text-b" : "text-a"}`}>창업결과 · {ending === "hope" ? "희망편" : "절망편"}</p>
+        {outcomePending ? (
+          <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-muted" role="status">
+            <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-muted border-t-ink" aria-hidden="true" />
+            선택한 결말을 정리하는 중...
+          </p>
+        ) : plan?.outcome ? (
+          <p className="mt-3 whitespace-pre-line text-sm leading-7">{plan.outcome}</p>
+        ) : planPending ? (
+          <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-muted" role="status">
+            <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-muted border-t-ink" aria-hidden="true" />
+            선택한 결말을 정리하는 중...
+          </p>
+        ) : (
+          <p className="mt-3 text-sm leading-7">창업결과를 정리하지 못했습니다. 다시 시뮬레이션해 주세요.</p>
+        )}
+      </section>
+
+      <section className={`${cardClass} p-5 sm:p-6`}>
         <p className="text-sm font-semibold text-a">창업 전</p>
         <h2 className="mt-2 text-2xl font-semibold">
           {result.recommended ? "예산으로 본 후보" : "고른 지역"} · {place}
@@ -659,7 +688,9 @@ function Result({
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-sm leading-6 text-muted">점포 수나 주민등록 인구가 없어 매출 구간은 비워 둡니다.</p>
+              <p className="mt-4 text-sm leading-6 text-muted">
+                {stores || residents ? "조회된 주민등록과 점포 분포는 있습니다. 매출 구간만 만들지 못했습니다." : "점포 수나 주민등록 인구가 없어 매출 구간은 비워 둡니다."}
+              </p>
             )}
             {result.planned && plan.sales.mid > 0 ? <p className="mt-3 text-xs leading-5 text-muted">남는 돈은 대략 매출에서 월세, 인건비, 재료·변동비를 뺀 값입니다. 공식 카드 매출이 아닙니다.</p> : null}
             {!result.planned && plan.sales.mid > 0 ? <p className="mt-3 text-sm leading-6 text-muted">이 시군구는 월세 계획 기준이 없어 남는 돈은 계산하지 않습니다.</p> : null}
@@ -672,25 +703,6 @@ function Result({
           </p>
         ) : (
           <p className="mt-3 text-sm leading-7">창업 후 계획을 정리하지 못했습니다. 다시 시뮬레이션해 주세요.</p>
-        )}
-      </section>
-
-      <section className={`${cardClass} p-5 sm:p-6`}>
-        <p className={`text-sm font-semibold ${ending === "hope" ? "text-b" : "text-a"}`}>창업결과 · {ending === "hope" ? "희망편" : "절망편"}</p>
-        {outcomePending ? (
-          <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-muted" role="status">
-            <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-muted border-t-ink" aria-hidden="true" />
-            선택한 결말을 정리하는 중...
-          </p>
-        ) : plan?.outcome ? (
-          <p className="mt-3 whitespace-pre-line text-sm leading-7">{plan.outcome}</p>
-        ) : planPending ? (
-          <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-muted" role="status">
-            <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-muted border-t-ink" aria-hidden="true" />
-            선택한 결말을 정리하는 중...
-          </p>
-        ) : (
-          <p className="mt-3 text-sm leading-7">창업결과를 정리하지 못했습니다. 다시 시뮬레이션해 주세요.</p>
         )}
       </section>
     </div>

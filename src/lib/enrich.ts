@@ -84,7 +84,8 @@ export async function draftOpening(input: DraftInput): Promise<OpeningDraft | nu
   });
   if (!text) return null;
   try {
-    return normalizeDraft(JSON.parse(text) as RawDraft);
+    const draft = normalizeDraft(JSON.parse(text) as RawDraft);
+    return draft ? withKnownSales(draft, input) : null;
   } catch {
     return null;
   }
@@ -102,21 +103,23 @@ async function countStores(input: { signguCds: string[]; indsLclsCd: string; ind
     let total = 0;
     let month = "";
     let partial = false;
+    const addDong = (name: string, amount: number) => {
+      const key = name.replace(/\s+/g, "");
+      if (!key) return;
+      counts.set(key, (counts.get(key) ?? 0) + amount);
+    };
     for (const area of loaded) {
       total += area.total;
       partial = partial || area.partial;
       month = area.month || month;
-      for (const name of area.names) counts.set(name, (counts.get(name) ?? 0) + 1);
+      for (const name of area.names) addDong(name, 1);
     }
-    for (const name of input.peerDongs ?? []) {
-      const trimmed = name.trim();
-      if (trimmed && !counts.has(trimmed)) counts.set(trimmed, 0);
-    }
-    if (input.dongName && !counts.has(input.dongName)) counts.set(input.dongName, 0);
+    for (const name of input.peerDongs ?? []) addDong(name, 0);
+    if (input.dongName) addDong(input.dongName, 0);
     const dongs = [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ko"));
-    const focus = input.dongName ?? null;
+    const focus = input.dongName?.replace(/\s+/g, "") || null;
     return { count: total, month, dongs, focus, partial };
   } catch {
     return null;
@@ -188,7 +191,11 @@ type OutcomeInput = {
   rent: number | null;
   gap: number;
   storeCount: number | null;
+  districtStores: number | null;
+  focusStores: number | null;
+  distribution: string;
   population: number | null;
+  households: number | null;
   salesMid: number | null;
 };
 
@@ -202,6 +209,9 @@ type DraftInput = {
   storeCount: number | null;
   storeMedian: number | null;
   storeRatio: number | null;
+  districtStores: number | null;
+  focusStores: number | null;
+  distribution: string;
   population: number | null;
   households: number | null;
   scope: string;
@@ -281,6 +291,32 @@ const openingSchema = {
   ],
 };
 
+function knownCount(label: string, value: number | null, unit: string): string {
+  if (value == null) return `${label} 조회 실패`;
+  return `${label} ${value.toLocaleString("ko-KR")}${unit} (조회됨)`;
+}
+
+function areaFacts(input: {
+  population: number | null;
+  households: number | null;
+  districtStores: number | null;
+  focusStores: number | null;
+  distribution: string;
+  storeMedian?: number | null;
+  storeRatio?: number | null;
+}): string[] {
+  const lines = [
+    knownCount("주민등록", input.population, "명"),
+    knownCount("세대", input.households, "가구"),
+    knownCount("시군구 같은 업종 점포", input.districtStores, "곳"),
+  ];
+  if (input.focusStores != null) lines.push(knownCount("선택 행정동 같은 업종 점포", input.focusStores, "곳"));
+  if (input.distribution) lines.push(`행정동 점포 분포 (조회됨): ${input.distribution}`);
+  if (input.storeMedian != null) lines.push(`점포 있는 행정동 중앙값 ${input.storeMedian.toLocaleString("ko-KR")}곳`);
+  if (input.storeRatio != null) lines.push(`중앙값 대비 ${input.storeRatio.toFixed(1)}배`);
+  return lines;
+}
+
 function openingPrompt(input: DraftInput): string {
   const lines = [
     `업종 ${input.industry}`,
@@ -290,14 +326,15 @@ function openingPrompt(input: DraftInput): string {
     `평수 ${input.pyeong}평`,
     `인테리어 총액 ${input.interior}만원`,
     input.rent == null ? "월세 계획 기준 없음" : `월세 ${input.rent}만원`,
-    input.storeCount == null ? "같은 업종 점포 수 없음" : `같은 업종 점포 ${input.storeCount}곳`,
-    input.storeMedian == null ? "행정동 중앙값 없음" : `점포 있는 행정동 중앙값 ${input.storeMedian}곳`,
-    input.storeRatio == null ? "중앙값 대비 배수 없음" : `중앙값 대비 ${input.storeRatio.toFixed(1)}배`,
-    input.population == null ? "주민등록 인구 없음" : `주민등록 ${input.population}명`,
-    input.households == null ? "세대수 없음" : `세대 ${input.households}가구`,
+    knownCount("매출 기준 점포", input.storeCount, "곳"),
+    ...areaFacts(input),
   ];
   return `너는 소상공인 창업 계획을 대략 잡는 작성자다. 아래 공개 수치만 근거로 한국어 JSON을 만든다.
-점포 수와 주민등록 인구가 있으면 월 매출 세 구간(만원)을 대략 잡아라. 점포당 배후 인구는 주민등록 인구를 같은 업종 점포 수로 나눈 값이다. 그 배후 가운데 일부만 손님이 된다고 보고, 업종에 맞는 객단가로 기준 매출을 정한 뒤 보수는 기준의 0.7배, 여유는 1.4배로 잡아라. 인구나 점포 수가 없으면 매출은 0으로 둬라.
+조회됨으로 적힌 주민등록과 점포 분포는 이미 있는 값이다. 없다, 확인하지 못했다, 자료가 없다고 말하지 마라.
+주민등록이 1명 이상이고 시군구 점포나 선택 행정동 점포가 1곳 이상이면 월 매출 세 구간(만원)은 모두 1 이상으로 잡아라.
+점포당 배후 인구는 주민등록 인구를 매출 기준 점포 수로 나눈다. 매출 기준 점포 수는 선택 행정동에 점포가 있으면 그 수이고, 없으면 시군구 전체 점포 수다.
+배후의 8%가 한 달에 한 번, 객단가 1만 5천 원으로 온다고 보면 기준 매출은 배후 인구 × 0.12 만원이다. 보수는 기준의 0.7배, 여유는 1.4배다. 업종에 맞게 이 기준에서 조금만 조정하라.
+주민등록 조회가 실패했거나 시군구 점포가 0곳일 때만 매출을 0으로 둬라.
 인테리어 총액은 바꾸지 말고 공사, 주방, 홀, 간판, 예비비 비율만 나눠라. 다섯 숫자의 합은 100이다.
 주 수, 집기, 계약 전 확인, 인허가는 그 업종에서 보통 필요한 항목으로 적어라. 수수료나 공식 시세는 만들지 마라. 성공이나 실패를 단정하지 마라. 한산, 보통, 붐빔은 쓰지 마라.
 area, prepare, operate는 각 두 문장 이내다. 목록은 항목당 20자 이내, 최대 5개다.
@@ -318,9 +355,9 @@ function outcomePrompt(input: OutcomeInput): string {
     `운영비 3개월 ${input.runway}만원`,
     input.rent == null ? "월세 계획 기준 없음" : `월세 ${input.rent}만원`,
     `예산을 빼고 남는 돈 ${input.gap}만원`,
-    input.storeCount == null ? "같은 업종 점포 수 없음" : `같은 업종 점포 ${input.storeCount}곳`,
-    input.population == null ? "주민등록 인구 없음" : `주민등록 ${input.population}명`,
-    input.salesMid == null ? "기준 매출 없음" : `이미 잡아 둔 기준 매출 ${input.salesMid}만원`,
+    knownCount("매출 기준 점포", input.storeCount, "곳"),
+    ...areaFacts(input),
+    input.salesMid == null ? "기준 매출 조회 실패" : `이미 잡아 둔 기준 매출 ${input.salesMid}만원 (조회됨)`,
   ];
   const task = input.hopeImpossible
     ? "희망편을 골랐지만 예산이 보증금과 3개월 운영비에도 못 미친다. 이 금액으로 가게를 열어 희망을 찾는 것은 불가능하다고 말하라. 현실적으로 가장 희망적인 길은 사업을 접고 회사에 취업하거나, 사업을 하지 않고 집에서 계속 쉬는 쪽이라고 둘 다 대안으로 써라. 예산, 보증금, 월세를 집어 재치 있게 풀어라. 사람을 깎아내리거나 자해를 암시하지 마라. 폐업률을 확정된 사실처럼 말하지 마라."
@@ -329,10 +366,26 @@ function outcomePrompt(input: OutcomeInput): string {
       : "희망편이다. 같은 수치에서 단골이 생기고 운영이 버티는 창업결과를 써라. 이미 잡아 둔 매출 숫자를 바꾸지 마라. 성공률을 확정된 사실처럼 말하지 마라.";
   return `너는 소상공인 창업결과만 쓰는 작성자다. outcome 하나만 한국어로 만든다.
 ${task}
+조회됨으로 적힌 주민등록, 점포 분포, 기준 매출은 있는 값이다. 그 숫자를 본문에 넣어라. 없다, 확인하지 못했다, 자료가 없다고 말하지 마라.
 여섯 문장에서 여덟 문장으로 쓰고, 빈 줄로 두 문단을 나눠라. 공식 시세나 카드 매출이라고 말하지 마라. 한산, 보통, 붐빔은 쓰지 마라.
 
 입력:
 ${lines.join("\n")}`;
+}
+
+function withKnownSales(draft: OpeningDraft, input: DraftInput): OpeningDraft {
+  if (draft.sales.mid > 0) return draft;
+  const stores = input.focusStores != null && input.focusStores > 0 ? input.focusStores : input.districtStores;
+  const people = input.population;
+  if (stores == null || people == null || stores <= 0 || people <= 0) return draft;
+  const mid = Math.max(1, Math.min(20000, Math.round((people / stores) * 0.12)));
+  const low = Math.max(1, Math.round(mid * 0.7));
+  const high = Math.max(low, Math.min(20000, Math.round(mid * 1.4)));
+  return {
+    ...draft,
+    sales: { low, mid, high },
+    labor: draft.labor > 0 ? Math.min(draft.labor, mid) : Math.round(mid * 0.25),
+  };
 }
 
 function normalizeDraft(raw: RawDraft): OpeningDraft | null {

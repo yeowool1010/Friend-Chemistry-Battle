@@ -46,6 +46,35 @@ export function judgeCompetition(stores: StoreSnapshot): LiveCompetition | null 
   };
 }
 
+export type StoreFacts = {
+  storeCount: number | null;
+  storeMedian: number | null;
+  storeRatio: number | null;
+  districtStores: number | null;
+  focusStores: number | null;
+  distribution: string;
+};
+
+/** 차트에 나온 점포 분포. 선택 동이 0곳이어도 시군구 합계가 있으면 그 합계를 매출 기준으로 쓴다. */
+export function describeStores(stores: StoreSnapshot | null): StoreFacts {
+  if (!stores) {
+    return { storeCount: null, storeMedian: null, storeRatio: null, districtStores: null, focusStores: null, distribution: "" };
+  }
+  const competition = judgeCompetition(stores);
+  const focus = stores.focus ? stores.dongs.find((dong) => dong.name === stores.focus) : null;
+  const focusStores = stores.focus ? (focus?.count ?? 0) : null;
+  const basis = focusStores != null && focusStores > 0 ? focusStores : stores.count;
+  const ranked = stores.dongs.filter((dong) => dong.count > 0).slice(0, 8);
+  return {
+    storeCount: basis,
+    storeMedian: competition?.median ?? null,
+    storeRatio: competition?.ratio ?? competition?.densestRatio ?? null,
+    districtStores: stores.count,
+    focusStores,
+    distribution: ranked.map((dong) => `${dong.name} ${dong.count}곳`).join(", "),
+  };
+}
+
 export function competitionDetail(live: LiveCompetition): string {
   const when = live.month ? `${live.month.slice(0, 4)}년 ${Number(live.month.slice(4))}월 상가정보` : "상가정보";
   const partial = live.partial ? " · 일부 업소" : "";

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/", label: "시뮬레이션" },
-  // { href: "/ask", label: "자료 질문" },
+  { href: "/chat", label: "대화모드" },
 ];
 
 export function SiteHeader() {
