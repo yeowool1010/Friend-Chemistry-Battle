@@ -72,7 +72,7 @@ export function Conversation() {
     go("large");
     setPicked("");
     setSaveNote("");
-    setMessages([choice("대분류를 골라 주세요.", INDUSTRY_GROUPS.map((group) => ({ id: group.code, label: group.name })))]);
+    setMessages([choice("업종 대분류를 골라 주세요.", INDUSTRY_GROUPS.map((group) => ({ id: group.code, label: group.name })))]);
   }
 
   function openSaved(item: SavedChat) {
@@ -132,7 +132,7 @@ export function Conversation() {
       setMessages((prev) => [
         ...markChoice(prev, messageId, choiceId),
         userLine(option.label),
-        choice("중분류를 골라 주세요.", group.industries.map((item) => ({ id: item.id, label: item.label }))),
+        choice("업종 중분류를 골라 주세요.", group.industries.map((item) => ({ id: item.id, label: item.label }))),
       ]);
       return;
     }
