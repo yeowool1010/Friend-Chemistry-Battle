@@ -1,14 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { cardClass, secondaryButton } from "@/components/buttons";
+import { cardClass, primaryButton, secondaryButton } from "@/components/buttons";
 import { DEPOSIT_MONTHS } from "@/lib/catalog";
 import { competitionDetail, describeStores, judgeCompetition } from "@/lib/competition";
 import { draftOpening, draftOutcome, enrichSimulation, loadAreaResidents, type OpeningDraft, type ResidentPopulation, type StoreCount } from "@/lib/enrich";
 import { INDUSTRY_GROUPS, industryById } from "@/lib/industries";
+import { applyShopMarket, applyShopVoice, buildPlaySetup, savePlaySetup } from "@/lib/play";
+import { draftShopMarket, draftShopVoice } from "@/lib/shopVoice";
 import { dongsInSigngu, planningDistrictId, REGIONS } from "@/lib/regions";
 import { chatLabel, emptyChatDraft, loadChats, rememberChat, writeChats, type ChatChoice, type ChatDraft, type ChatMessage, type ChatStep, type SavedChat } from "@/lib/savedChats";
 import { formatMan, formatManHangul, hopeOutOfReach, simulate, type Simulation } from "@/lib/simulate";
+
+function chatPrint(list: ChatMessage[]): string {
+  return JSON.stringify(list);
+}
 
 const PYEONG = 15;
 const YES_NO: ChatChoice[] = [
@@ -17,12 +24,17 @@ const YES_NO: ChatChoice[] = [
 ];
 
 export function Conversation() {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [saves, setSaves] = useState<SavedChat[]>([]);
   const [picked, setPicked] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [step, setStep] = useState<ChatStep>("large");
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SavedChat | null>(null);
+  const [playPending, setPlayPending] = useState(false);
   const draftRef = useRef<ChatDraft>(emptyChatDraft());
+  const cleanPrint = useRef(chatPrint([]));
   const stepRef = useRef<ChatStep>("large");
   const generation = useRef(0);
   const answered = useRef(new Set<string>());
@@ -72,7 +84,23 @@ export function Conversation() {
     go("large");
     setPicked("");
     setSaveNote("");
-    setMessages([choice("업종 대분류를 골라 주세요.", INDUSTRY_GROUPS.map((group) => ({ id: group.code, label: group.name })))]);
+    const first = [choice("업종 대분류를 골라 주세요.", INDUSTRY_GROUPS.map((group) => ({ id: group.code, label: group.name })))];
+    cleanPrint.current = chatPrint(first);
+    setMessages(first);
+  }
+
+  function askNew() {
+    if (picked || chatPrint(messages) === cleanPrint.current) {
+      begin();
+      return;
+    }
+    setLeaveOpen(true);
+  }
+
+  function startFresh(saveFirst: boolean) {
+    if (saveFirst) keep();
+    setLeaveOpen(false);
+    begin();
   }
 
   function openSaved(item: SavedChat) {
@@ -83,6 +111,7 @@ export function Conversation() {
     setMessages(item.messages);
     setPicked(item.id);
     setSaveNote("");
+    cleanPrint.current = chatPrint(item.messages);
   }
 
   function keep() {
@@ -102,6 +131,48 @@ export function Conversation() {
     });
     setPicked(next.id);
     setSaveNote("이 대화를 이 브라우저에 저장했습니다.");
+    cleanPrint.current = chatPrint(messages);
+  }
+
+  async function startPlay() {
+    const setup = buildPlaySetup(draftRef.current);
+    if (!setup || playPending) return;
+    setPlayPending(true);
+    try {
+      const asked = {
+        largeName: setup.largeName,
+        industry: setup.industry,
+        place: setup.place,
+        dong: setup.dong,
+        budget: setup.budget,
+        pyeong: setup.pyeong,
+      };
+      const [voice, market] = await Promise.all([
+        draftShopVoice(asked),
+        draftShopMarket({ ...asked, anchorRent: setup.areaRent, interior: setup.interiorCost }),
+      ]);
+      const withVoice = voice ? applyShopVoice(setup, voice) : setup;
+      savePlaySetup(market ? applyShopMarket(withVoice, market) : withVoice);
+      router.push("/play");
+    } catch {
+      savePlaySetup(setup);
+      router.push("/play");
+    } finally {
+      setPlayPending(false);
+    }
+  }
+
+  function dropSaved(id: string) {
+    setSaves((current) => {
+      const stored = current.filter((item) => item.id !== id);
+      writeChats(stored);
+      return stored;
+    });
+    if (picked === id) {
+      setPicked("");
+      setSaveNote("");
+      cleanPrint.current = "";
+    }
   }
 
   useEffect(() => {
@@ -122,6 +193,7 @@ export function Conversation() {
     const option = message.choices.find((item) => item.id === choiceId);
     if (!option) return;
     answered.current.add(messageId);
+    setPicked("");
     const phase = stepRef.current;
 
     if (phase === "large") {
@@ -219,6 +291,7 @@ export function Conversation() {
     const budget = Number(raw.replace(/,/g, ""));
     if (!Number.isFinite(budget) || budget <= 0) return;
     answered.current.add(messageId);
+    setPicked("");
     const current = draftRef.current;
     const result = buildResult(current, budget);
     const hangul = formatManHangul(budget);
@@ -376,6 +449,15 @@ export function Conversation() {
         </div>
         <div className={`${cardClass} flex flex-col gap-4 p-4 sm:p-5`}>
           <div ref={topRef} />
+          {step === "done" && buildPlaySetup(draftRef.current) ? (
+            <div className="border-2 border-ink bg-paper p-4">
+              <p className="text-sm font-semibold text-b">대화가 끝났습니다</p>
+              <p className="mt-2 text-sm leading-6">고른 업종과 지역, 예산으로 달마다 영업합니다. 길면 5년이고, 운영이 무너지면 그 전에 문을 닫습니다. 상호와 하는 일은 시작할 때 그 업종에 맞춰 정합니다.</p>
+              <button type="button" className={`${primaryButton} mt-4`} onClick={startPlay} disabled={playPending}>
+                {playPending ? "지역 시세와 업종을 맞추는 중" : "창업 시작하기"}
+              </button>
+            </div>
+          ) : null}
           {[...messages].reverse().map((message) => (
             <MessageView key={message.id} message={message} onPick={onPick} onBudget={submitBudget} />
           ))}
@@ -385,7 +467,7 @@ export function Conversation() {
         <button type="button" className={secondaryButton} onClick={keep} disabled={messages.length === 0}>
           이 내용을 저장
         </button>
-        <button type="button" className={secondaryButton} onClick={begin}>
+        <button type="button" className={secondaryButton} onClick={askNew}>
           새 대화
         </button>
         {saveNote ? <p className="text-sm text-muted">{saveNote}</p> : <p className="text-sm text-muted">중간에도 이 브라우저에 남길 수 있습니다.</p>}
@@ -394,19 +476,102 @@ export function Conversation() {
           {saves.length === 0 ? <p className="text-sm text-muted">아직 없습니다.</p> : null}
           <ul className="flex max-h-[28rem] flex-col gap-2 overflow-y-auto">
             {saves.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className="flex gap-2">
                 <button
                   type="button"
-                  className={`w-full border-2 border-ink px-3 py-2 text-left text-sm leading-5 ${picked === item.id ? "bg-ink text-paper" : "bg-paper"}`}
+                  className={`min-w-0 flex-1 border-2 border-ink px-3 py-2 text-left text-sm leading-5 ${picked === item.id ? "bg-ink text-paper" : "bg-paper"}`}
                   onClick={() => openSaved(item)}
                 >
                   {item.label}
+                </button>
+                <button
+                  type="button"
+                  className={`shrink-0 border-2 border-ink px-2 text-sm font-semibold ${picked === item.id ? "bg-ink text-paper" : "bg-paper"}`}
+                  aria-label={`${item.label} 지우기`}
+                  onClick={() => setPendingDelete(item)}
+                >
+                  ×
                 </button>
               </li>
             ))}
           </ul>
         </div>
       </aside>
+      {leaveOpen ? <LeaveDialog onStay={() => setLeaveOpen(false)} onDiscard={() => startFresh(false)} onSave={() => startFresh(true)} /> : null}
+      {pendingDelete ? (
+        <DeleteDialog
+          label={pendingDelete.label}
+          onStay={() => setPendingDelete(null)}
+          onDelete={() => {
+            dropSaved(pendingDelete.id);
+            setPendingDelete(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function LeaveDialog({ onStay, onDiscard, onSave }: { onStay: () => void; onDiscard: () => void; onSave: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4" role="presentation" onClick={onStay}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leave-title"
+        className={`${cardClass} w-full max-w-md p-5`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="leave-title" className="text-xl font-semibold leading-snug">
+            기존 대화를 저장하지 않으면 사라집니다
+          </h2>
+          <button type="button" className="border-2 border-ink px-2 text-sm font-semibold" aria-label="닫기" onClick={onStay}>
+            ×
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6">지금 화면의 대화는 저장한 내용에 없습니다. 새 대화를 시작하면 이 대화는 지워집니다.</p>
+        <div className="mt-5 flex flex-col gap-3">
+          <button type="button" className={secondaryButton} onClick={onDiscard}>
+            저장하지 않고 새 대화 시작
+          </button>
+          <button type="button" className={primaryButton} onClick={onSave}>
+            저장하고 새 대화 시작
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteDialog({ label, onStay, onDelete }: { label: string; onStay: () => void; onDelete: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4" role="presentation" onClick={onStay}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+        className={`${cardClass} w-full max-w-md p-5`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="delete-title" className="text-xl font-semibold leading-snug">
+            정말로 삭제하시겠습니까
+          </h2>
+          <button type="button" className="border-2 border-ink px-2 text-sm font-semibold" aria-label="닫기" onClick={onStay}>
+            ×
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6">{label}</p>
+        <div className="mt-5 flex flex-col gap-3">
+          <button type="button" className={secondaryButton} onClick={onStay}>
+            취소
+          </button>
+          <button type="button" className={primaryButton} onClick={onDelete}>
+            삭제
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

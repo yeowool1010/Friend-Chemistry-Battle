@@ -59,7 +59,7 @@ const TRAFFIC_LABEL: Record<Traffic, string> = {
 export function simulate(input: SimulationInput): Simulation {
   const industry = industryById(input.industryId);
   const pyeong = clamp(finite(input.pyeong, 15), 5, 80);
-  const budget = clamp(finite(input.budget, 5000), 500, 50000);
+  const budget = clamp(finite(input.budget, 5000), 500, 100_000);
   const ranked = rankAreas(industry, budget, pyeong);
   const chosen = input.districtId === "recommend" ? ranked[0] : ranked.find((item) => item.district.id === input.districtId) ?? null;
   if (!chosen) return unplanned(industry, budget, input.place, input.dongScope);
